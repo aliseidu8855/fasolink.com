@@ -14,6 +14,7 @@ from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
+from django.utils.translation import gettext_lazy as _
 
 # Load environment variables from .env file
 load_dotenv()
@@ -63,6 +64,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -133,6 +135,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
+LANGUAGES = [
+    ('en', _('English')),
+    ('fr', _('French')),
+]
 
 TIME_ZONE = "UTC"
 
@@ -180,3 +186,8 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# Translation files location
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'locale'),
+]

@@ -1,0 +1,38 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-13 07:26-0700\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+#: .\api\serializers.py:42
+msgid "Title cannot be blank."
+msgstr "Le titre ne peut pas être vide."
+
+#: .\api\serializers.py:45
+msgid "Description cannot be blank."
+msgstr "La description ne peut pas être vide."
+
+#: .\api\serializers.py:50
+msgid "Please enter a valid price."
+msgstr "Veuillez entrer un prix valide."
+
+#: .\fasolink_backend\settings.py:139
+msgid "English"
+msgstr ""
+
+#: .\fasolink_backend\settings.py:140
+msgid "French"
+msgstr ""
