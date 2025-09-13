@@ -1,0 +1,10 @@
+# .gitignore
+
+# Environment variables
+.env
+
+# Other common Django ignores...
+__pycache__/
+*.pyc
+/media/
+/staticfiles/
