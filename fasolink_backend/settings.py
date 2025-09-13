@@ -36,7 +36,7 @@ DEBUG = "RENDER" not in os.environ  # Disable debug if RENDER is set
 
 # ALLOWED_HOSTS = []
 
-RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS = [RENDER_EXTERNAL_HOSTNAME]
 else:
@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",
     "django_filters",
     "drf_spectacular",
+    "corsheaders",
+    "django.contrib.admin",
     "rest_framework",
     "rest_framework.authtoken",
     "api",
@@ -62,6 +64,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -94,7 +97,7 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 WSGI_APPLICATION = "fasolink_backend.wsgi.application"
@@ -104,11 +107,11 @@ WSGI_APPLICATION = "fasolink_backend.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(
+    "default": dj_database_url.config(
         # Feel free to modify this part to suit your default local database
-        default= os.environ.get("DATABASE_URL"),
+        default=os.environ.get("DATABASE_URL"),
         conn_max_age=600,
-        ssl_require=True # Render requires SSL connections
+        ssl_require=True,  # Render requires SSL connections
     )
 }
 
@@ -136,8 +139,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 LANGUAGES = [
-    ('en', _('English')),
-    ('fr', _('French')),
+    ("en", _("English")),
+    ("fr", _("French")),
 ]
 
 TIME_ZONE = "UTC"
@@ -152,9 +155,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 # This is where Django will collect all static files
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 # Enable Whitenoise to serve static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -181,13 +184,13 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Spectacular Settings for API documentation
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'FasoLink API',
-    'DESCRIPTION': 'API documentation for the FasoLink classifieds platform.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    "TITLE": "FasoLink API",
+    "DESCRIPTION": "API documentation for the FasoLink classifieds platform.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 # Translation files location
 LOCALE_PATHS = [
-    os.path.join(BASE_DIR, 'locale'),
+    os.path.join(BASE_DIR, "locale"),
 ]
