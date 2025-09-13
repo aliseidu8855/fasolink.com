@@ -40,7 +40,9 @@ class ListingListCreateView(generics.ListCreateAPIView):
     
     # Fields that the user can order the results by
     ordering_fields = ['created_at', 'price']
-    
+
+    def get_serializer_context(self):
+        return {'request': self.request}
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -49,8 +51,9 @@ class ListingDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Listing.objects.all()
     serializer_class = ListingSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
-    # We will add custom permissions here later to ensure only owners can edit/delete
-
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
 
 # View to list all of a user's conversations
 class ConversationListView(generics.ListAPIView):
