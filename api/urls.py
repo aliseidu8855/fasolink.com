@@ -8,8 +8,9 @@ from .views import (
     StartConversationView,
     ConversationListView,
     ConversationDetailView,
-    MessageCreateView,
     UserListingsView,
+    ConversationMessagesView,
+    MarkConversationReadView,
 )
 
 urlpatterns = [
@@ -33,8 +34,13 @@ urlpatterns = [
     ),
     path(
         "conversations/<int:conversation_id>/messages/",
-        MessageCreateView.as_view(),
-        name="create-message",
+        ConversationMessagesView.as_view(),
+        name="conversation-messages",
+    ),
+    path(
+        "conversations/<int:conversation_id>/mark-read/",
+        MarkConversationReadView.as_view(),
+        name="conversation-mark-read",
     ),
     path("profile/my-listings/", UserListingsView.as_view(), name="user-listings"),
 ]

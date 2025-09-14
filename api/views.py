@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Category, Listing, Conversation
+from .models import Category, Listing, Conversation, Message, MessageRead
 from .serializers import UserSerializer, CategorySerializer, ListingSerializer, ConversationSerializer, MessageSerializer, ConversationDetailSerializer
 from .permissions import IsOwnerOrReadOnly
 from django.shortcuts import get_object_or_404
@@ -10,6 +10,9 @@ from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import PermissionDenied
 from .filters import ListingFilter
+from rest_framework.views import APIView
+from django.db import transaction
+from rest_framework.pagination import PageNumberPagination
 
 
 
@@ -61,8 +64,19 @@ class ConversationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Return conversations where the current user is a participant
-        return self.request.user.conversations.all().order_by('-created_at')
+        # Annotate last message content and timestamp for efficient list rendering
+        from django.db.models import OuterRef, Subquery, DateTimeField, TextField
+        last_message_subquery = Message.objects.filter(conversation=OuterRef('pk')).order_by('-timestamp')
+        qs = (
+            self.request.user.conversations
+            .all()
+            .annotate(
+                last_message_timestamp=Subquery(last_message_subquery.values('timestamp')[:1], output_field=DateTimeField()),
+                last_message=Subquery(last_message_subquery.values('content')[:1], output_field=TextField()),
+            )
+            .order_by('-last_message_timestamp', '-created_at')
+        )
+        return qs
 
 # View to retrieve a single conversation and its messages, or create a new one
 class ConversationDetailView(generics.RetrieveAPIView):
@@ -84,29 +98,32 @@ class MessageCreateView(generics.CreateAPIView):
 
 # View to initiate a conversation (or retrieve an existing one)
 class StartConversationView(generics.CreateAPIView):
-    serializer_class = ConversationSerializer
+    serializer_class = ConversationDetailSerializer  # return full detail including messages
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         listing_id = request.data.get('listing_id')
         listing = get_object_or_404(Listing, pk=listing_id)
-        
+
         if listing.user == request.user:
             return Response({'error': 'You cannot start a conversation on your own listing.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if a conversation already exists between these users for this listing
-        conversation = Conversation.objects.filter(listing=listing, participants=request.user).filter(participants=listing.user).first()
+        # Check existing conversation between the two participants for this listing
+        conversation = (
+            Conversation.objects
+            .filter(listing=listing, participants=request.user)
+            .filter(participants=listing.user)
+            .first()
+        )
 
-        if conversation:
-            # Conversation already exists, return it
-            serializer = self.get_serializer(conversation)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            # Create a new conversation
+        created = False
+        if not conversation:
             conversation = Conversation.objects.create(listing=listing)
             conversation.participants.add(request.user, listing.user)
-            serializer = self.get_serializer(conversation)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            created = True
+
+        serializer = self.get_serializer(conversation)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 class UserListingsView(generics.ListAPIView):
     """
@@ -121,3 +138,53 @@ class UserListingsView(generics.ListAPIView):
 
     def get_serializer_context(self):
         return {'request': self.request}
+
+
+class ConversationMessagesPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class ConversationMessagesView(generics.ListCreateAPIView):
+    """List (paginated) and create messages for a conversation.
+    GET: paginated messages (oldest first) for infinite scroll.
+    POST: create a new message in the conversation.
+    """
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = ConversationMessagesPagination
+
+    def get_queryset(self):
+        conversation = get_object_or_404(Conversation, pk=self.kwargs['conversation_id'])
+        if self.request.user not in conversation.participants.all():
+            raise PermissionDenied("You are not a participant in this conversation.")
+        return conversation.messages.select_related('sender').order_by('timestamp')
+
+    def perform_create(self, serializer):
+        conversation = get_object_or_404(Conversation, pk=self.kwargs['conversation_id'])
+        if self.request.user not in conversation.participants.all():
+            raise PermissionDenied("You are not a participant in this conversation.")
+        serializer.save(sender=self.request.user, conversation=conversation)
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx
+
+
+class MarkConversationReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, conversation_id):
+        conversation = get_object_or_404(Conversation, pk=conversation_id)
+        if request.user not in conversation.participants.all():
+            raise PermissionDenied("You are not a participant in this conversation.")
+        unread_messages = conversation.messages.exclude(sender=request.user).exclude(reads__user=request.user)
+        created = 0
+        with transaction.atomic():
+            to_create = [MessageRead(message=m, user=request.user) for m in unread_messages]
+            if to_create:
+                MessageRead.objects.bulk_create(to_create, ignore_conflicts=True)
+                created = len(to_create)
+        return Response({'updated': created}, status=status.HTTP_200_OK)

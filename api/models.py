@@ -56,3 +56,19 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.timestamp}"
+
+
+class MessageRead(models.Model):
+    """Tracks which user has read which message (basic read receipt)."""
+    message = models.ForeignKey(Message, related_name='reads', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='message_reads', on_delete=models.CASCADE)
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('message', 'user')
+        indexes = [
+            models.Index(fields=['user', 'message']),
+        ]
+
+    def __str__(self):
+        return f"Read: {self.user.username} -> {self.message.id}"

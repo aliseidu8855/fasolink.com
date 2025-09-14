@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, Listing, ListingImage, Conversation, Message
+from .models import Category, Listing, ListingImage, Conversation, Message, MessageRead
 from django.utils.translation import gettext_lazy as _
 
 # Serializer for User Registration
@@ -64,25 +64,71 @@ class ListingSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.ReadOnlyField(source='sender.username')
+    is_read = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'content', 'timestamp']
+        fields = ['id', 'sender', 'content', 'timestamp', 'is_read']
+
+    def get_is_read(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        if obj.sender_id == request.user.id:
+            return True  # Always consider own messages as read
+        return MessageRead.objects.filter(message=obj, user=request.user).exists()
 
 class ConversationSerializer(serializers.ModelSerializer):
-    # Use a simple string representation for participants for the list view
+    """Lightweight conversation serializer used for conversation list.
+    Now includes last message preview & timestamp (annotated in queryset)."""
     participants = serializers.StringRelatedField(many=True)
     listing_title = serializers.CharField(source='listing.title', read_only=True)
+    last_message = serializers.CharField(read_only=True, allow_null=True)
+    last_message_timestamp = serializers.DateTimeField(read_only=True, allow_null=True)
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
-        fields = ['id', 'listing', 'listing_title', 'participants', 'created_at']
+        fields = [
+            'id', 'listing', 'listing_title', 'participants', 'created_at',
+            'last_message', 'last_message_timestamp', 'unread_count'
+        ]
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+        # Count messages not sent by user and not read
+        qs = obj.messages.exclude(sender=request.user)
+        unread = qs.exclude(reads__user=request.user).count()
+        return unread
 
 class ConversationDetailSerializer(serializers.ModelSerializer):
     participants = serializers.StringRelatedField(many=True)
     messages = MessageSerializer(many=True, read_only=True)
     listing = ListingSerializer(read_only=True)
+    last_message = serializers.SerializerMethodField()
+    last_message_timestamp = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
-        fields = ['id', 'listing', 'participants', 'messages', 'created_at']
+        fields = [
+            'id', 'listing', 'participants', 'messages', 'created_at',
+            'last_message', 'last_message_timestamp', 'unread_count'
+        ]
+
+    def get_last_message(self, obj):
+        msg = obj.messages.last()
+        return msg.content if msg else None
+
+    def get_last_message_timestamp(self, obj):
+        msg = obj.messages.last()
+        return msg.timestamp if msg else None
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 0
+        qs = obj.messages.exclude(sender=request.user)
+        return qs.exclude(reads__user=request.user).count()
