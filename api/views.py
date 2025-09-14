@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Category, Listing, Conversation, Message, MessageRead
+from .models import Category, Listing, Conversation, Message, MessageRead, Review
 from .serializers import (
     UserSerializer,
     CategorySerializer,
@@ -43,6 +43,7 @@ class ListingListCreateView(generics.ListCreateAPIView):
     permission_classes = [
         permissions.IsAuthenticatedOrReadOnly
     ]  # Only logged-in users can create
+    pagination_class = PageNumberPagination
 
     # Configure filtering and searching
     filter_backends = [
@@ -60,6 +61,11 @@ class ListingListCreateView(generics.ListCreateAPIView):
 
     def get_serializer_context(self):
         return {"request": self.request}
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        from django.db.models import Avg
+        return qs.annotate(seller_rating=Avg('user__received_reviews__rating'))
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

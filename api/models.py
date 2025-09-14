@@ -92,3 +92,21 @@ class MessageRead(models.Model):
 
     def __str__(self):
         return f"Read: {self.user.username} -> {self.message.id}"
+
+
+class Review(models.Model):
+    """Seller review: user (reviewer) -> seller (User), rating 1-5, optional comment."""
+    reviewer = models.ForeignKey(User, related_name="given_reviews", on_delete=models.CASCADE)
+    seller = models.ForeignKey(User, related_name="received_reviews", on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["seller", "rating"]),
+        ]
+        unique_together = ("reviewer", "seller", "created_at")  # simplistic; could refine to one per transaction
+
+    def __str__(self):
+        return f"Review {self.rating}* {self.reviewer_id}->{self.seller_id}"
