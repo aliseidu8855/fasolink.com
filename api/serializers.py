@@ -46,13 +46,14 @@ class ListingSerializer(serializers.ModelSerializer):
         required=False
     )
     seller_rating = serializers.DecimalField(source='seller_rating', max_digits=3, decimal_places=2, read_only=True, allow_null=True)
+    seller_rating_count = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
         model = Listing
         fields = [
             'id', 'title', 'description', 'price', 'category', 
             'location', 'user', 'created_at', 'updated_at', 'is_featured', 'negotiable', 'rating', 'seller_rating',
-            'images', 'uploaded_images'
+            'seller_rating_count', 'images', 'uploaded_images'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at']
 

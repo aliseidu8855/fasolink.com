@@ -110,3 +110,8 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review {self.rating}* {self.reviewer_id}->{self.seller_id}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not 1 <= self.rating <= 5:
+            raise ValidationError({"rating": "Rating must be between 1 and 5"})

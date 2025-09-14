@@ -64,8 +64,15 @@ class ListingListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        from django.db.models import Avg
-        return qs.annotate(seller_rating=Avg('user__received_reviews__rating'))
+        from django.db.models import Avg, Count, Q
+        # Annotate both average rating and count of reviews (non-null ratings)
+        return qs.annotate(
+            seller_rating=Avg('user__received_reviews__rating'),
+            seller_rating_count=Count(
+                'user__received_reviews',
+                filter=Q(user__received_reviews__rating__isnull=False)
+            )
+        )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
