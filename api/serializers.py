@@ -45,7 +45,8 @@ class ListingSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    seller_rating = serializers.DecimalField(source='seller_rating', max_digits=3, decimal_places=2, read_only=True, allow_null=True)
+    # Use a method field for seller_rating so we can gracefully handle None / float / Decimal
+    seller_rating = serializers.SerializerMethodField()
     seller_rating_count = serializers.IntegerField(read_only=True, required=False)
 
     class Meta:
@@ -56,6 +57,24 @@ class ListingSerializer(serializers.ModelSerializer):
             'seller_rating_count', 'images', 'uploaded_images'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at']
+
+    def get_seller_rating(self, obj):
+        # Annotation provided in queryset as seller_rating
+        val = getattr(obj, 'seller_rating', None)
+        if val is None:
+            return None
+        try:
+            from decimal import Decimal, ROUND_HALF_UP
+            # Coerce to Decimal with 2 places
+            d = Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            # Ensure it fits within 0-5 logical bounds (defensive)
+            if d < 0:
+                return Decimal('0.00')
+            if d > 5:
+                return Decimal('5.00')
+            return d
+        except Exception:
+            return None
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
