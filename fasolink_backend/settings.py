@@ -63,6 +63,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
+    "cloudinary",
+    "cloudinary_storage",
     "api",
 ]
 
@@ -199,3 +201,6 @@ SPECTACULAR_SETTINGS = {
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, "locale"),
 ]
+
+# --- Cloudinary Media Storage Configuration ---
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
