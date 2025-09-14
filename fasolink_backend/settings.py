@@ -3,6 +3,9 @@ import os
 import dj_database_url
 from dotenv import load_dotenv
 from django.utils.translation import gettext_lazy as _
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -71,19 +74,31 @@ DATABASES = {
 ## --- FILE STORAGE (CLOUDINARY) ---
 # This is the only file storage configuration that should exist.
 CLOUDINARY_STORAGE = {
-    "CLOUD_NAME": os.environ.get("CLOUDINARY_NAME"),
-    "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
-    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET_KEY"),
+    'CLOUD_NAME': os.environ.get("CLOUDINARY_NAME"),
+    'API_KEY': os.environ.get("CLOUDINARY_API_KEY"),
+    'API_SECRET': os.environ.get("CLOUDINARY_API_SECRET_KEY"),
 }
-DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+# Configure cloudinary
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET_KEY"),
+    secure=True
+)
 MEDIA_URL = ""  # Explicitly disable old media URL
 MEDIA_ROOT = ""  # Explicitly disable old media root
 
 ## --- STATIC FILES (WHITENOISE) ---
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 ## --- OTHER SETTINGS ---
 # (Templates, Auth Validators, i18n, DRF, Spectacular, etc. remain the same)
 TEMPLATES = [
