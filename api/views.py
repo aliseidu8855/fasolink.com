@@ -103,6 +103,8 @@ class StartConversationView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         listing_id = request.data.get('listing_id')
+        if not listing_id:
+            return Response({'error': 'listing_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
         listing = get_object_or_404(Listing, pk=listing_id)
 
         if listing.user == request.user:
@@ -122,8 +124,10 @@ class StartConversationView(generics.CreateAPIView):
             conversation.participants.add(request.user, listing.user)
             created = True
 
-        serializer = self.get_serializer(conversation)
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    serializer = self.get_serializer(conversation)
+    # Include a flag so the frontend can distinguish creation vs existing without relying on status code alone
+    payload = serializer.data | { 'created': created }
+    return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 class UserListingsView(generics.ListAPIView):
     """
