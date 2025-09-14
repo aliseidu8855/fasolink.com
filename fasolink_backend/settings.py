@@ -183,10 +183,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Local Media Files Configuration (for development)
 # The base URL to access media files in the browser
-MEDIA_URL = "/media/"
+# MEDIA_URL = "/media/"
 
 # The absolute path to the folder where media files will be stored
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
 # Spectacular Settings for API documentation
