@@ -107,5 +107,17 @@ class StartConversationView(generics.CreateAPIView):
             conversation.participants.add(request.user, listing.user)
             serializer = self.get_serializer(conversation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
 
+class UserListingsView(generics.ListAPIView):
+    """
+    This view returns a list of all the listings
+    for the currently authenticated user.
+    """
+    serializer_class = ListingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Listing.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def get_serializer_context(self):
+        return {'request': self.request}
