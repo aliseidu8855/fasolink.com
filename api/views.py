@@ -40,6 +40,20 @@ class MeView(APIView):
         })
 
 
+class StatsView(APIView):
+    """Simple aggregate stats for homepage hero."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from django.contrib.auth.models import User as DjangoUser
+        data = {
+            "listings": Listing.objects.count(),
+            "categories": Category.objects.count(),
+            "users": DjangoUser.objects.count(),
+        }
+        return Response(data)
+
+
 # View to list all categories
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()

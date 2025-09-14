@@ -3,6 +3,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 from .views import (
     RegisterView,
     MeView,
+    StatsView,
     CategoryListView,
     ListingListCreateView,
     ListingDetailView,
@@ -18,6 +19,7 @@ urlpatterns = [
     # Authentication
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/me/", MeView.as_view(), name="me"),
+    path("stats/", StatsView.as_view(), name="stats"),
     path("auth/login/", obtain_auth_token, name="login"),
     # Core
     path("categories/", CategoryListView.as_view(), name="category-list"),
