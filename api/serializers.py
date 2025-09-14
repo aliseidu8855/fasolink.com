@@ -50,8 +50,10 @@ class ListingSerializer(serializers.ModelSerializer):
         model = Listing
         fields = [
             'id', 'title', 'description', 'price', 'category', 
-            'location', 'user', 'created_at', 'images', 'uploaded_images'
+            'location', 'user', 'created_at', 'updated_at', 'is_featured', 'negotiable', 'rating',
+            'images', 'uploaded_images'
         ]
+        read_only_fields = ['user', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
