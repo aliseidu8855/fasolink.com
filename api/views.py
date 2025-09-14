@@ -124,10 +124,10 @@ class StartConversationView(generics.CreateAPIView):
             conversation.participants.add(request.user, listing.user)
             created = True
 
-    serializer = self.get_serializer(conversation)
-    # Include a flag so the frontend can distinguish creation vs existing without relying on status code alone
-    payload = serializer.data | { 'created': created }
-    return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        serializer = self.get_serializer(conversation)
+        payload = dict(serializer.data)
+        payload['created'] = created
+        return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 class UserListingsView(generics.ListAPIView):
     """
