@@ -216,7 +216,18 @@ class UserListingsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Listing.objects.filter(user=self.request.user).order_by("-created_at")
+        from django.db.models import Avg, Count, Q
+        return (
+            Listing.objects.filter(user=self.request.user)
+            .annotate(
+                seller_rating=Avg('user__received_reviews__rating'),
+                seller_rating_count=Count(
+                    'user__received_reviews',
+                    filter=Q(user__received_reviews__rating__isnull=False)
+                )
+            )
+            .order_by("-created_at")
+        )
 
     def get_serializer_context(self):
         return {"request": self.request}
