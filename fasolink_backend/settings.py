@@ -182,11 +182,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # AWS_DEFAULT_ACL = None
 
 # Local Media Files Configuration (for development)
-# The base URL to access media files in the browser
-# MEDIA_URL = "/media/"
-
-# The absolute path to the folder where media files will be stored
-# MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = ''
+MEDIA_ROOT = ''
 
 
 # Spectacular Settings for API documentation
