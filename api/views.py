@@ -29,6 +29,17 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
 
 
+class MeView(APIView):
+    """Return basic authenticated user info."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "id": request.user.id,
+            "username": request.user.username,
+        })
+
+
 # View to list all categories
 class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
