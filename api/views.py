@@ -3,6 +3,7 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Category, Listing, Conversation, Message, MessageRead, Review
+from .query_utils import with_seller_rating
 from .serializers import (
     UserSerializer,
     CategorySerializer,
@@ -89,15 +90,7 @@ class ListingListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        from django.db.models import Avg, Count, Q
-        # Annotate both average rating and count of reviews (non-null ratings)
-        return qs.annotate(
-            seller_rating=Avg('user__received_reviews__rating'),
-            seller_rating_count=Count(
-                'user__received_reviews',
-                filter=Q(user__received_reviews__rating__isnull=False)
-            )
-        )
+        return with_seller_rating(qs)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -216,18 +209,9 @@ class UserListingsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        from django.db.models import Avg, Count, Q
-        return (
+        return with_seller_rating(
             Listing.objects.filter(user=self.request.user)
-            .annotate(
-                seller_rating=Avg('user__received_reviews__rating'),
-                seller_rating_count=Count(
-                    'user__received_reviews',
-                    filter=Q(user__received_reviews__rating__isnull=False)
-                )
-            )
-            .order_by("-created_at")
-        )
+        ).order_by("-created_at")
 
     def get_serializer_context(self):
         return {"request": self.request}
