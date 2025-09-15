@@ -4,6 +4,7 @@ from .views import (
     RegisterView,
     MeView,
     StatsView,
+    DashboardStatsView,
     CategoryListView,
     ListingListCreateView,
     ListingDetailView,
@@ -20,6 +21,7 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("stats/", StatsView.as_view(), name="stats"),
+    path("dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
     path("auth/login/", obtain_auth_token, name="login"),
     # Core
     path("categories/", CategoryListView.as_view(), name="category-list"),

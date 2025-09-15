@@ -38,7 +38,18 @@ class MeView(APIView):
         return Response({
             "id": request.user.id,
             "username": request.user.username,
+            "email": request.user.email,
+            "messages_count": Message.objects.filter(participants=request.user).count() if hasattr(Message, 'participants') else 0,
         })
+
+    def patch(self, request):
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            data = serializer.data
+            data.pop('password', None)
+            return Response(data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StatsView(APIView):
@@ -51,6 +62,29 @@ class StatsView(APIView):
             "listings": Listing.objects.count(),
             "categories": Category.objects.count(),
             "users": DjangoUser.objects.count(),
+        }
+        return Response(data)
+
+
+class DashboardStatsView(APIView):
+    """Authenticated user dashboard stats: listing counts, views, messages.
+    For now views are placeholder (0) until tracking implemented.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        listings_qs = Listing.objects.filter(user=user)
+        total = listings_qs.count()
+        active = listings_qs.filter(is_featured__in=[True, False]).count()  # placeholder definition of active
+        # Messages: count of all messages where user participates in conversation or sent
+        convo_ids = Conversation.objects.filter(participants=user).values_list('id', flat=True)
+        messages = Message.objects.filter(conversation_id__in=convo_ids).exclude(sender=user).count()
+        data = {
+            "listings_total": total,
+            "listings_active": active,
+            "views": 0,  # TODO implement view tracking table
+            "messages": messages,
         }
         return Response(data)
 

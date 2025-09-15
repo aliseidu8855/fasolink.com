@@ -5,17 +5,29 @@ from django.utils.translation import gettext_lazy as _
 
 # Serializer for User Registration
 class UserSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=False, allow_blank=True)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'password']
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = ['id', 'username', 'password', 'email']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'email': {'required': False}
+        }
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password']
-        )
+        password = validated_data.pop('password')
+        user = User.objects.create_user(password=password, **validated_data)
         return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
 
 # Serializer for Categories
 class CategorySerializer(serializers.ModelSerializer):
