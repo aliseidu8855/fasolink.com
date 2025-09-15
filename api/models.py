@@ -26,6 +26,21 @@ class Listing(models.Model):
     negotiable = models.BooleanField(default=False, db_index=True)
     # Average rating (e.g., 4.5). Kept simple for now; a future Review model could derive this.
     rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    # Extended structured attributes (nullable & optional to avoid breaking existing data)
+    brand = models.CharField(max_length=120, blank=True, null=True)
+    condition = models.CharField(max_length=60, blank=True, null=True)  # e.g., Brand New, Used
+    color = models.CharField(max_length=80, blank=True, null=True)
+    material = models.CharField(max_length=120, blank=True, null=True)
+    room = models.CharField(max_length=120, blank=True, null=True)
+    # Store / pickup address details
+    address_line = models.CharField(max_length=255, blank=True, null=True)
+    address_city = models.CharField(max_length=120, blank=True, null=True)
+    address_region = models.CharField(max_length=120, blank=True, null=True)
+    address_postal_code = models.CharField(max_length=40, blank=True, null=True)
+    # Opening hours (simple textual representation for now, e.g. "Mon - Sat, 07:00-18:00")
+    opening_hours = models.CharField(max_length=180, blank=True, null=True)
+    # Whether currently open (seller can toggle manually until we implement structured hours logic)
+    is_open_now = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
