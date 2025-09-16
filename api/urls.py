@@ -14,6 +14,8 @@ from .views import (
     UserListingsView,
     ConversationMessagesView,
     MarkConversationReadView,
+    SpecsMetadataView,
+    LocationsSuggestView,
 )
 
 urlpatterns = [
@@ -49,4 +51,6 @@ urlpatterns = [
         name="conversation-mark-read",
     ),
     path("profile/my-listings/", UserListingsView.as_view(), name="user-listings"),
+    path("specs-metadata/", SpecsMetadataView.as_view(), name="specs-metadata"),
+    path("locations-suggest/", LocationsSuggestView.as_view(), name="locations-suggest"),
 ]

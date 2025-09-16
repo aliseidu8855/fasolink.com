@@ -130,3 +130,21 @@ class Review(models.Model):
         from django.core.exceptions import ValidationError
         if not 1 <= self.rating <= 5:
             raise ValidationError({"rating": "Rating must be between 1 and 5"})
+
+
+class ListingAttribute(models.Model):
+    """Flexible key/value specification attached to a Listing.
+    Enables different categories to store different structured fields (e.g. RAM, Color, Mileage).
+    """
+    listing = models.ForeignKey(Listing, related_name="attributes", on_delete=models.CASCADE)
+    name = models.CharField(max_length=80, db_index=True)
+    value = models.CharField(max_length=255)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["listing", "name"]),
+        ]
+        unique_together = ("listing", "name")  # one value per attribute key per listing
+
+    def __str__(self):
+        return f"{self.listing_id}:{self.name}={self.value[:30]}"

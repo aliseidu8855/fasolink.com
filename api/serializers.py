@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, Listing, ListingImage, Conversation, Message, MessageRead
+from .models import Category, Listing, ListingImage, Conversation, Message, MessageRead, ListingAttribute
 from django.utils.translation import gettext_lazy as _
 
 # Serializer for User Registration
@@ -61,13 +61,16 @@ class ListingSerializer(serializers.ModelSerializer):
     seller_rating = serializers.SerializerMethodField()
     seller_rating_count = serializers.IntegerField(read_only=True, required=False)
 
+    attributes = serializers.ListField(child=serializers.DictField(), write_only=True, required=False, help_text="List of {name, value} specs")
+    attributes_out = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Listing
         fields = [
             'id', 'title', 'description', 'price', 'category', 
             'location', 'user', 'created_at', 'updated_at', 'is_featured', 'negotiable', 'rating', 'seller_rating',
             'seller_rating_count', 'brand', 'condition', 'color', 'material', 'room', 'address_line', 'address_city',
-            'address_region', 'address_postal_code', 'opening_hours', 'is_open_now', 'images', 'uploaded_images'
+            'address_region', 'address_postal_code', 'opening_hours', 'is_open_now', 'images', 'uploaded_images', 'attributes', 'attributes_out'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at']
 
@@ -89,9 +92,25 @@ class ListingSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_attributes_out(self, obj):
+        # Return dict list of dynamic attributes
+        return [
+            {"name": a.name, "value": a.value}
+            for a in getattr(obj, 'attributes').all()
+        ]
+
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
+        attributes = validated_data.pop('attributes', [])
         listing = Listing.objects.create(**validated_data)
+        # Bulk create attributes
+        attr_objs = []
+        for attr in attributes:
+            name = attr.get('name'); value = attr.get('value')
+            if name and value:
+                attr_objs.append(ListingAttribute(listing=listing, name=name[:80], value=value[:255]))
+        if attr_objs:
+            ListingAttribute.objects.bulk_create(attr_objs, ignore_conflicts=True)
         for image in uploaded_images:
             ListingImage.objects.create(listing=listing, image=image)
         return listing

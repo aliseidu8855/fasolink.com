@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Category, Listing, Conversation, Message, MessageRead, Review
+from .models import Category, Listing, Conversation, Message, MessageRead, Review, ListingAttribute
 from .query_utils import with_seller_rating
 from .serializers import (
     UserSerializer,
@@ -21,6 +21,8 @@ from .filters import ListingFilter
 from rest_framework.views import APIView
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Value as V
+from django.db.models.functions import Lower
 
 
 # View for User Registration
@@ -308,3 +310,78 @@ class MarkConversationReadView(APIView):
                 MessageRead.objects.bulk_create(to_create, ignore_conflicts=True)
                 created = len(to_create)
         return Response({"updated": created}, status=status.HTTP_200_OK)
+
+
+class SpecsMetadataView(APIView):
+    """Return allowed specification fields for a given high-level category.
+    For now static definitions; can be moved to database later.
+    /api/specs-metadata/?category=Phones
+    """
+    permission_classes = [permissions.AllowAny]
+
+    CATEGORY_SPECS = {
+        "Phones": [
+            {"name": "Brand", "key": "brand", "required": True},
+            {"name": "Model", "key": "model", "required": True},
+            {"name": "Condition", "key": "condition", "required": True},
+            {"name": "Second Condition", "key": "second_condition", "required": False},
+            {"name": "Screen Size (inches)", "key": "screen_size", "required": False},
+            {"name": "Ram", "key": "ram", "required": False},
+            {"name": "Internal Storage", "key": "internal_storage", "required": True},
+            {"name": "Color", "key": "color", "required": True},
+            {"name": "Operating System", "key": "os", "required": False},
+            {"name": "Display Type", "key": "display_type", "required": False},
+            {"name": "Resolution", "key": "resolution", "required": False},
+            {"name": "SIM", "key": "sim", "required": False},
+            {"name": "Card Slot", "key": "card_slot", "required": False},
+            {"name": "Main Camera", "key": "main_camera", "required": False},
+            {"name": "Selfie Camera", "key": "selfie_camera", "required": False},
+            {"name": "Battery (mAh)", "key": "battery", "required": False},
+            {"name": "Features", "key": "features", "required": False},
+            {"name": "Exchange Possible", "key": "exchange_possible", "required": False},
+        ],
+        "Cars": [
+            {"name": "Make", "key": "make", "required": True},
+            {"name": "Model", "key": "model", "required": True},
+            {"name": "Year", "key": "year", "required": True},
+            {"name": "Transmission", "key": "transmission", "required": False},
+            {"name": "Fuel Type", "key": "fuel_type", "required": False},
+            {"name": "Mileage", "key": "mileage", "required": False},
+            {"name": "Color", "key": "color", "required": False},
+            {"name": "Condition", "key": "condition", "required": True},
+        ],
+        "Real Estate": [
+            {"name": "Property Type", "key": "property_type", "required": True},
+            {"name": "Bedrooms", "key": "bedrooms", "required": False},
+            {"name": "Bathrooms", "key": "bathrooms", "required": False},
+            {"name": "Size (sqm)", "key": "size", "required": False},
+            {"name": "Furnished", "key": "furnished", "required": False},
+        ],
+        "Electronics": [
+            {"name": "Brand", "key": "brand", "required": False},
+            {"name": "Model", "key": "model", "required": False},
+            {"name": "Condition", "key": "condition", "required": True},
+        ],
+    }
+
+    def get(self, request):
+        category = request.query_params.get("category")
+        if not category:
+            return Response({"error": "category query param required"}, status=400)
+        specs = self.CATEGORY_SPECS.get(category)
+        if specs is None:
+            return Response({"error": "unknown category"}, status=404)
+        return Response({"category": category, "specs": specs})
+
+
+class LocationsSuggestView(APIView):
+    """Return list of distinct locations for autocomplete (basic)."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        q = request.query_params.get('q', '').strip().lower()
+        qs = Listing.objects.exclude(location__isnull=True).exclude(location="")
+        if q:
+            qs = qs.filter(location__icontains=q)
+        locations = list({loc.strip(): None for loc in qs.values_list('location', flat=True)[:80]}.keys())
+        return Response({"results": locations[:40]})
