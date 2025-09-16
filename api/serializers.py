@@ -102,6 +102,15 @@ class ListingSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
         attributes = validated_data.pop('attributes', [])
+        # If attributes came as a JSON string (multipart form workaround), try to parse
+        if isinstance(attributes, str):
+            import json
+            try:
+                parsed = json.loads(attributes)
+                if isinstance(parsed, list):
+                    attributes = parsed
+            except Exception:
+                attributes = []  # ignore malformed input silently for now
         listing = Listing.objects.create(**validated_data)
         # Bulk create attributes
         attr_objs = []
