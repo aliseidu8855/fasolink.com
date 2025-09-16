@@ -15,7 +15,12 @@ class ListingFilter(filters.FilterSet):
 
     class Meta:
         model = Listing
-        fields = ["category", "location", "negotiable", "is_featured"]  # Allow exact filtering on these fields
+        fields = [
+            "category",
+            "location",
+            "negotiable",
+            "is_featured",
+        ]  # Allow exact filtering on these fields
 
     def filter_by_search_text(self, queryset, name, value):
         # This custom method allows searching across multiple fields

@@ -2,7 +2,15 @@ from django.contrib.auth.models import User
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Category, Listing, Conversation, Message, MessageRead, Review, ListingAttribute
+from .models import (
+    Category,
+    Listing,
+    Conversation,
+    Message,
+    MessageRead,
+    Review,
+    ListingAttribute,
+)
 from .query_utils import with_seller_rating
 from .serializers import (
     UserSerializer,
@@ -34,32 +42,41 @@ class RegisterView(generics.CreateAPIView):
 
 class MeView(APIView):
     """Return basic authenticated user info."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        return Response({
-            "id": request.user.id,
-            "username": request.user.username,
-            "email": request.user.email,
-            "messages_count": Message.objects.filter(participants=request.user).count() if hasattr(Message, 'participants') else 0,
-        })
+        return Response(
+            {
+                "id": request.user.id,
+                "username": request.user.username,
+                "email": request.user.email,
+                "messages_count": (
+                    Message.objects.filter(participants=request.user).count()
+                    if hasattr(Message, "participants")
+                    else 0
+                ),
+            }
+        )
 
     def patch(self, request):
         serializer = UserSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             data = serializer.data
-            data.pop('password', None)
+            data.pop("password", None)
             return Response(data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StatsView(APIView):
     """Simple aggregate stats for homepage hero."""
+
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         from django.contrib.auth.models import User as DjangoUser
+
         data = {
             "listings": Listing.objects.count(),
             "categories": Category.objects.count(),
@@ -72,16 +89,25 @@ class DashboardStatsView(APIView):
     """Authenticated user dashboard stats: listing counts, views, messages.
     For now views are placeholder (0) until tracking implemented.
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
         listings_qs = Listing.objects.filter(user=user)
         total = listings_qs.count()
-        active = listings_qs.filter(is_featured__in=[True, False]).count()  # placeholder definition of active
+        active = listings_qs.filter(
+            is_featured__in=[True, False]
+        ).count()  # placeholder definition of active
         # Messages: count of all messages where user participates in conversation or sent
-        convo_ids = Conversation.objects.filter(participants=user).values_list('id', flat=True)
-        messages = Message.objects.filter(conversation_id__in=convo_ids).exclude(sender=user).count()
+        convo_ids = Conversation.objects.filter(participants=user).values_list(
+            "id", flat=True
+        )
+        messages = (
+            Message.objects.filter(conversation_id__in=convo_ids)
+            .exclude(sender=user)
+            .count()
+        )
         data = {
             "listings_total": total,
             "listings_active": active,
@@ -317,50 +343,157 @@ class SpecsMetadataView(APIView):
     For now static definitions; can be moved to database later.
     /api/specs-metadata/?category=Phones
     """
+
     permission_classes = [permissions.AllowAny]
 
     CATEGORY_SPECS = {
         "Phones": [
             {"name": "Brand", "key": "brand", "required": True, "type": "text"},
             {"name": "Model", "key": "model", "required": True, "type": "text"},
-            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
-            {"name": "Second Condition", "key": "second_condition", "required": False, "type": "text"},
-            {"name": "Screen Size (inches)", "key": "screen_size", "required": False, "type": "number"},
+            {
+                "name": "Condition",
+                "key": "condition",
+                "required": True,
+                "type": "select",
+                "options": ["New", "Used"],
+            },
+            {
+                "name": "Second Condition",
+                "key": "second_condition",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "Screen Size (inches)",
+                "key": "screen_size",
+                "required": False,
+                "type": "number",
+            },
             {"name": "Ram", "key": "ram", "required": False, "type": "text"},
-            {"name": "Internal Storage", "key": "internal_storage", "required": True, "type": "text"},
+            {
+                "name": "Internal Storage",
+                "key": "internal_storage",
+                "required": True,
+                "type": "text",
+            },
             {"name": "Color", "key": "color", "required": True, "type": "text"},
-            {"name": "Operating System", "key": "os", "required": False, "type": "text"},
-            {"name": "Display Type", "key": "display_type", "required": False, "type": "text"},
-            {"name": "Resolution", "key": "resolution", "required": False, "type": "text"},
+            {
+                "name": "Operating System",
+                "key": "os",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "Display Type",
+                "key": "display_type",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "Resolution",
+                "key": "resolution",
+                "required": False,
+                "type": "text",
+            },
             {"name": "SIM", "key": "sim", "required": False, "type": "text"},
-            {"name": "Card Slot", "key": "card_slot", "required": False, "type": "text"},
-            {"name": "Main Camera", "key": "main_camera", "required": False, "type": "text"},
-            {"name": "Selfie Camera", "key": "selfie_camera", "required": False, "type": "text"},
-            {"name": "Battery (mAh)", "key": "battery", "required": False, "type": "number"},
+            {
+                "name": "Card Slot",
+                "key": "card_slot",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "Main Camera",
+                "key": "main_camera",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "Selfie Camera",
+                "key": "selfie_camera",
+                "required": False,
+                "type": "text",
+            },
+            {
+                "name": "Battery (mAh)",
+                "key": "battery",
+                "required": False,
+                "type": "number",
+            },
             {"name": "Features", "key": "features", "required": False, "type": "text"},
-            {"name": "Exchange Possible", "key": "exchange_possible", "required": False, "type": "boolean"},
+            {
+                "name": "Exchange Possible",
+                "key": "exchange_possible",
+                "required": False,
+                "type": "boolean",
+            },
         ],
         "Cars": [
             {"name": "Make", "key": "make", "required": True, "type": "text"},
             {"name": "Model", "key": "model", "required": True, "type": "text"},
             {"name": "Year", "key": "year", "required": True, "type": "number"},
-            {"name": "Transmission", "key": "transmission", "required": False, "type": "select", "options": ["Automatic", "Manual"]},
-            {"name": "Fuel Type", "key": "fuel_type", "required": False, "type": "select", "options": ["Petrol", "Diesel", "Electric", "Hybrid"]},
+            {
+                "name": "Transmission",
+                "key": "transmission",
+                "required": False,
+                "type": "select",
+                "options": ["Automatic", "Manual"],
+            },
+            {
+                "name": "Fuel Type",
+                "key": "fuel_type",
+                "required": False,
+                "type": "select",
+                "options": ["Petrol", "Diesel", "Electric", "Hybrid"],
+            },
             {"name": "Mileage", "key": "mileage", "required": False, "type": "number"},
             {"name": "Color", "key": "color", "required": False, "type": "text"},
-            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
+            {
+                "name": "Condition",
+                "key": "condition",
+                "required": True,
+                "type": "select",
+                "options": ["New", "Used"],
+            },
         ],
         "Real Estate": [
-            {"name": "Property Type", "key": "property_type", "required": True, "type": "select", "options": ["Apartment", "House", "Land"]},
-            {"name": "Bedrooms", "key": "bedrooms", "required": False, "type": "number"},
-            {"name": "Bathrooms", "key": "bathrooms", "required": False, "type": "number"},
+            {
+                "name": "Property Type",
+                "key": "property_type",
+                "required": True,
+                "type": "select",
+                "options": ["Apartment", "House", "Land"],
+            },
+            {
+                "name": "Bedrooms",
+                "key": "bedrooms",
+                "required": False,
+                "type": "number",
+            },
+            {
+                "name": "Bathrooms",
+                "key": "bathrooms",
+                "required": False,
+                "type": "number",
+            },
             {"name": "Size (sqm)", "key": "size", "required": False, "type": "number"},
-            {"name": "Furnished", "key": "furnished", "required": False, "type": "boolean"},
+            {
+                "name": "Furnished",
+                "key": "furnished",
+                "required": False,
+                "type": "boolean",
+            },
         ],
         "Electronics": [
             {"name": "Brand", "key": "brand", "required": False, "type": "text"},
             {"name": "Model", "key": "model", "required": False, "type": "text"},
-            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
+            {
+                "name": "Condition",
+                "key": "condition",
+                "required": True,
+                "type": "select",
+                "options": ["New", "Used"],
+            },
         ],
     }
 
@@ -376,20 +509,21 @@ class SpecsMetadataView(APIView):
 
 class LocationsSuggestView(APIView):
     """Return list of distinct locations for autocomplete (basic)."""
+
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        q = request.query_params.get('q', '').strip().lower()
-        return_all = request.query_params.get('all') == '1'
+        q = request.query_params.get("q", "").strip().lower()
+        return_all = request.query_params.get("all") == "1"
         qs = Listing.objects.exclude(location__isnull=True).exclude(location="")
         if q:
             qs = qs.filter(location__icontains=q)
-        values = qs.values_list('location', flat=True)
+        values = qs.values_list("location", flat=True)
         unique = []
         seen = set()
         cap = 500 if return_all else 80
         for loc in values[:cap]:
-            norm = (loc or '').strip()
+            norm = (loc or "").strip()
             if norm and norm not in seen:
                 seen.add(norm)
                 unique.append(norm)
