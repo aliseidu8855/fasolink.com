@@ -41,6 +41,8 @@ class Listing(models.Model):
     opening_hours = models.CharField(max_length=180, blank=True, null=True)
     # Whether currently open (seller can toggle manually until we implement structured hours logic)
     is_open_now = models.BooleanField(default=False)
+    # Contact phone (simple string; could be normalized later)
+    contact_phone = models.CharField(max_length=40, blank=True, null=True, help_text="Primary contact phone for this listing")
 
     def __str__(self):
         return self.title

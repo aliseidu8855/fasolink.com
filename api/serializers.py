@@ -70,7 +70,7 @@ class ListingSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'price', 'category', 
             'location', 'user', 'created_at', 'updated_at', 'is_featured', 'negotiable', 'rating', 'seller_rating',
             'seller_rating_count', 'brand', 'condition', 'color', 'material', 'room', 'address_line', 'address_city',
-            'address_region', 'address_postal_code', 'opening_hours', 'is_open_now', 'images', 'uploaded_images', 'attributes', 'attributes_out'
+            'address_region', 'address_postal_code', 'opening_hours', 'is_open_now', 'contact_phone', 'images', 'uploaded_images', 'attributes', 'attributes_out'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at']
 

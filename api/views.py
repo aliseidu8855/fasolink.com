@@ -321,46 +321,46 @@ class SpecsMetadataView(APIView):
 
     CATEGORY_SPECS = {
         "Phones": [
-            {"name": "Brand", "key": "brand", "required": True},
-            {"name": "Model", "key": "model", "required": True},
-            {"name": "Condition", "key": "condition", "required": True},
-            {"name": "Second Condition", "key": "second_condition", "required": False},
-            {"name": "Screen Size (inches)", "key": "screen_size", "required": False},
-            {"name": "Ram", "key": "ram", "required": False},
-            {"name": "Internal Storage", "key": "internal_storage", "required": True},
-            {"name": "Color", "key": "color", "required": True},
-            {"name": "Operating System", "key": "os", "required": False},
-            {"name": "Display Type", "key": "display_type", "required": False},
-            {"name": "Resolution", "key": "resolution", "required": False},
-            {"name": "SIM", "key": "sim", "required": False},
-            {"name": "Card Slot", "key": "card_slot", "required": False},
-            {"name": "Main Camera", "key": "main_camera", "required": False},
-            {"name": "Selfie Camera", "key": "selfie_camera", "required": False},
-            {"name": "Battery (mAh)", "key": "battery", "required": False},
-            {"name": "Features", "key": "features", "required": False},
-            {"name": "Exchange Possible", "key": "exchange_possible", "required": False},
+            {"name": "Brand", "key": "brand", "required": True, "type": "text"},
+            {"name": "Model", "key": "model", "required": True, "type": "text"},
+            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
+            {"name": "Second Condition", "key": "second_condition", "required": False, "type": "text"},
+            {"name": "Screen Size (inches)", "key": "screen_size", "required": False, "type": "number"},
+            {"name": "Ram", "key": "ram", "required": False, "type": "text"},
+            {"name": "Internal Storage", "key": "internal_storage", "required": True, "type": "text"},
+            {"name": "Color", "key": "color", "required": True, "type": "text"},
+            {"name": "Operating System", "key": "os", "required": False, "type": "text"},
+            {"name": "Display Type", "key": "display_type", "required": False, "type": "text"},
+            {"name": "Resolution", "key": "resolution", "required": False, "type": "text"},
+            {"name": "SIM", "key": "sim", "required": False, "type": "text"},
+            {"name": "Card Slot", "key": "card_slot", "required": False, "type": "text"},
+            {"name": "Main Camera", "key": "main_camera", "required": False, "type": "text"},
+            {"name": "Selfie Camera", "key": "selfie_camera", "required": False, "type": "text"},
+            {"name": "Battery (mAh)", "key": "battery", "required": False, "type": "number"},
+            {"name": "Features", "key": "features", "required": False, "type": "text"},
+            {"name": "Exchange Possible", "key": "exchange_possible", "required": False, "type": "boolean"},
         ],
         "Cars": [
-            {"name": "Make", "key": "make", "required": True},
-            {"name": "Model", "key": "model", "required": True},
-            {"name": "Year", "key": "year", "required": True},
-            {"name": "Transmission", "key": "transmission", "required": False},
-            {"name": "Fuel Type", "key": "fuel_type", "required": False},
-            {"name": "Mileage", "key": "mileage", "required": False},
-            {"name": "Color", "key": "color", "required": False},
-            {"name": "Condition", "key": "condition", "required": True},
+            {"name": "Make", "key": "make", "required": True, "type": "text"},
+            {"name": "Model", "key": "model", "required": True, "type": "text"},
+            {"name": "Year", "key": "year", "required": True, "type": "number"},
+            {"name": "Transmission", "key": "transmission", "required": False, "type": "select", "options": ["Automatic", "Manual"]},
+            {"name": "Fuel Type", "key": "fuel_type", "required": False, "type": "select", "options": ["Petrol", "Diesel", "Electric", "Hybrid"]},
+            {"name": "Mileage", "key": "mileage", "required": False, "type": "number"},
+            {"name": "Color", "key": "color", "required": False, "type": "text"},
+            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
         ],
         "Real Estate": [
-            {"name": "Property Type", "key": "property_type", "required": True},
-            {"name": "Bedrooms", "key": "bedrooms", "required": False},
-            {"name": "Bathrooms", "key": "bathrooms", "required": False},
-            {"name": "Size (sqm)", "key": "size", "required": False},
-            {"name": "Furnished", "key": "furnished", "required": False},
+            {"name": "Property Type", "key": "property_type", "required": True, "type": "select", "options": ["Apartment", "House", "Land"]},
+            {"name": "Bedrooms", "key": "bedrooms", "required": False, "type": "number"},
+            {"name": "Bathrooms", "key": "bathrooms", "required": False, "type": "number"},
+            {"name": "Size (sqm)", "key": "size", "required": False, "type": "number"},
+            {"name": "Furnished", "key": "furnished", "required": False, "type": "boolean"},
         ],
         "Electronics": [
-            {"name": "Brand", "key": "brand", "required": False},
-            {"name": "Model", "key": "model", "required": False},
-            {"name": "Condition", "key": "condition", "required": True},
+            {"name": "Brand", "key": "brand", "required": False, "type": "text"},
+            {"name": "Model", "key": "model", "required": False, "type": "text"},
+            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
         ],
     }
 
@@ -380,8 +380,21 @@ class LocationsSuggestView(APIView):
 
     def get(self, request):
         q = request.query_params.get('q', '').strip().lower()
+        return_all = request.query_params.get('all') == '1'
         qs = Listing.objects.exclude(location__isnull=True).exclude(location="")
         if q:
             qs = qs.filter(location__icontains=q)
-        locations = list({loc.strip(): None for loc in qs.values_list('location', flat=True)[:80]}.keys())
-        return Response({"results": locations[:40]})
+        values = qs.values_list('location', flat=True)
+        unique = []
+        seen = set()
+        cap = 500 if return_all else 80
+        for loc in values[:cap]:
+            norm = (loc or '').strip()
+            if norm and norm not in seen:
+                seen.add(norm)
+                unique.append(norm)
+        # When returning all, provide sorted list
+        if return_all:
+            unique.sort(key=lambda s: s.lower())
+        limit = 500 if return_all else 40
+        return Response({"results": unique[:limit], "all": return_all})
