@@ -28,6 +28,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "https://fasolink-web.onrender.com",
     "https://fasolink.vercel.app",
+    "http://192.168.11.108:5173",
+    "http://172.26.144.1:5173",
 ]
 
 ## --- INSTALLED APPS ---
