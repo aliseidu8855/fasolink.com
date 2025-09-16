@@ -26,7 +26,8 @@ if RENDER_EXTERNAL_HOSTNAME:
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://fasolink-web.onrender.com",  # Add your frontend URL here
+    "https://fasolink-web.onrender.com",
+    "https://fasolink.vercel.app/"
 ]
 
 ## --- INSTALLED APPS ---
