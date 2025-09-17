@@ -12,6 +12,8 @@ class ListingFilter(filters.FilterSet):
     negotiable = filters.BooleanFilter(field_name="negotiable")
     is_featured = filters.BooleanFilter(field_name="is_featured")
     min_rating = filters.NumberFilter(field_name="rating", lookup_expr="gte")
+    # Match exact town (case-insensitive) in the location field, when provided as ?town=Town%20Name
+    town = filters.CharFilter(method="filter_by_town")
 
     class Meta:
         model = Listing
@@ -20,6 +22,7 @@ class ListingFilter(filters.FilterSet):
             "location",
             "negotiable",
             "is_featured",
+            "town",
         ]  # Allow exact filtering on these fields
 
     def filter_by_search_text(self, queryset, name, value):
@@ -29,3 +32,9 @@ class ListingFilter(filters.FilterSet):
         return queryset.filter(
             Q(title__icontains=value) | Q(description__icontains=value)
         )
+
+    def filter_by_town(self, queryset, name, value):
+        if not value:
+            return queryset
+        # Match the Listing.location exactly (case-insensitive) to the provided town name
+        return queryset.filter(location__iexact=value)
