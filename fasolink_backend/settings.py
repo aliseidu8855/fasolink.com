@@ -37,6 +37,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://fasolink.vercel.app",
     "http://192.168.11.108:5173",
     "http://172.26.144.1:5173",
+    "https://fasolinkapi-c1c106ebe031.herokuapp.com",
 ]
 
 ## --- INSTALLED APPS ---
