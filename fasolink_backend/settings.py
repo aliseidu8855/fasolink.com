@@ -73,11 +73,15 @@ MIDDLEWARE = [
 ]
 
 ## --- DATABASE ---
+# Only require SSL for Postgres; sqlite does not accept ssl params
+_db_url = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}" )
+_db_url_lower = _db_url.lower()
+_ssl_require = _db_url_lower.startswith("postgres://") or _db_url_lower.startswith("postgresql://")
 DATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}"),
+    "default": dj_database_url.parse(
+        _db_url,
         conn_max_age=600,
-        ssl_require=True,
+        ssl_require=_ssl_require,
     )
 }
 
