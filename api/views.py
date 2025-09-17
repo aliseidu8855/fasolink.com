@@ -119,7 +119,9 @@ class DashboardStatsView(APIView):
 
 # View to list all categories
 class CategoryListView(generics.ListAPIView):
-    queryset = Category.objects.all()
+    def get_queryset(self):
+        from django.db.models import Count
+        return Category.objects.annotate(listings_count=Count('listings'))
     permission_classes = (permissions.AllowAny,)
     serializer_class = CategorySerializer
 

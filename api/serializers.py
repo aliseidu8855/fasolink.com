@@ -38,9 +38,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Serializer for Categories
 class CategorySerializer(serializers.ModelSerializer):
+    listings_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = Category
-        fields = ["id", "name", "icon_name"]
+        fields = ["id", "name", "icon_name", "listings_count"]
 
 
 # Serializers for Listings (will be expanded later)
