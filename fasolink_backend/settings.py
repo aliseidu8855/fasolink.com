@@ -40,6 +40,13 @@ CORS_ALLOWED_ORIGINS = [
     "https://fasolinkapi-c1c106ebe031.herokuapp.com",
 ]
 
+# Allow additional CORS origins via environment variables (comma-separated)
+_extra_cors = os.environ.get("CORS_ALLOWED_ORIGINS")
+if _extra_cors:
+    for origin in [o.strip() for o in _extra_cors.split(",") if o.strip()]:
+        if origin not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(origin)
+
 ## --- INSTALLED APPS ---
 INSTALLED_APPS = [
     "django.contrib.admin",
