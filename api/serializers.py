@@ -68,12 +68,8 @@ class ListingSerializer(serializers.ModelSerializer):
     seller_rating = serializers.SerializerMethodField()
     seller_rating_count = serializers.IntegerField(read_only=True, required=False)
 
-    attributes = serializers.ListField(
-        child=serializers.DictField(),
-        write_only=True,
-        required=False,
-        help_text="List of {name, value} specs",
-    )
+    # Accept JSON (string or parsed) for attributes to play nicely with multipart forms
+    attributes = serializers.JSONField(write_only=True, required=False, help_text="List of {name, value} specs")
     attributes_out = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -140,16 +136,12 @@ class ListingSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         uploaded_images = validated_data.pop("uploaded_images", [])
         attributes = validated_data.pop("attributes", [])
-        # If attributes came as a JSON string (multipart form workaround), try to parse
-        if isinstance(attributes, str):
-            import json
-
-            try:
-                parsed = json.loads(attributes)
-                if isinstance(parsed, list):
-                    attributes = parsed
-            except Exception:
-                attributes = []  # ignore malformed input silently for now
+        # Normalize attributes to a list of dicts
+        if not attributes:
+            attributes = []
+        if isinstance(attributes, dict):
+            # single dict -> wrap in list (unlikely but defensive)
+            attributes = [attributes]
         listing = Listing.objects.create(**validated_data)
         # Bulk create attributes
         attr_objs = []
