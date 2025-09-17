@@ -17,11 +17,18 @@ WSGI_APPLICATION = "fasolink_backend.wsgi.application"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 ## --- DEPLOYMENT & SECURITY ---
-DEBUG = "RENDER" not in os.environ
+DEBUG = os.environ.get("DEBUG", "").lower() in {"1","true","yes"} or ("RENDER" not in os.environ and "HEROKU" not in os.environ)
 ALLOWED_HOSTS = []
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+if HEROKU_APP_NAME:
+    ALLOWED_HOSTS.extend([
+        f"{HEROKU_APP_NAME}.herokuapp.com",
+        "localhost",
+        "127.0.0.1",
+    ])
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -68,7 +75,7 @@ MIDDLEWARE = [
 ## --- DATABASE ---
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
+        default=os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}"),
         conn_max_age=600,
         ssl_require=True,
     )
@@ -102,6 +109,11 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+ # Trust X-Forwarded-Proto from Heroku/Proxy
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = []
+if os.environ.get('HEROKU_APP_NAME'):
+    CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['HEROKU_APP_NAME']}.herokuapp.com")
 ## --- OTHER SETTINGS ---
 # (Templates, Auth Validators, i18n, DRF, Spectacular, etc. remain the same)
 TEMPLATES = [

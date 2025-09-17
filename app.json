@@ -1,0 +1,11 @@
+{
+  "name": "fasolink-backend",
+  "description": "FasoLink Django REST API",
+  "env": {
+    "PYTHONUNBUFFERED": { "value": "1" },
+    "DISABLE_COLLECTSTATIC": { "description": "Set to 1 to skip collectstatic (not recommended)", "required": false }
+  },
+  "scripts": {
+    "postdeploy": "python manage.py migrate"
+  }
+}
