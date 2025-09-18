@@ -8,8 +8,6 @@ from .models import (
     Conversation,
     Message,
     MessageRead,
-    Review,
-    ListingAttribute,
 )
 from .query_utils import with_seller_rating
 from .serializers import (
@@ -30,8 +28,8 @@ from .ws_events import broadcast_conversation_message, broadcast_conversation_re
 from rest_framework.views import APIView
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Value as V
-from django.db.models.functions import Lower
+from django.db.models import Count, IntegerField, Sum, Case, When, Max
+from django.utils.http import http_date, parse_http_date_safe
 
 
 # View for User Registration
@@ -76,12 +74,10 @@ class StatsView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        from django.contrib.auth.models import User as DjangoUser
-
         data = {
             "listings": Listing.objects.count(),
             "categories": Category.objects.count(),
-            "users": DjangoUser.objects.count(),
+            "users": User.objects.count(),
         }
         return Response(data)
 
@@ -121,10 +117,30 @@ class DashboardStatsView(APIView):
 # View to list all categories
 class CategoryListView(generics.ListAPIView):
     def get_queryset(self):
-        from django.db.models import Count
         return Category.objects.annotate(listings_count=Count('listings'))
     permission_classes = (permissions.AllowAny,)
     serializer_class = CategorySerializer
+
+    def list(self, request, *args, **kwargs):
+        # Compute weak ETag for conditional GET before doing the heavy work
+        etag = None
+        try:
+            from hashlib import md5
+            key = f"cats:{Category.objects.count()}"
+            etag = 'W/"' + md5(key.encode()).hexdigest() + '"'
+            inm = request.META.get("HTTP_IF_NONE_MATCH")
+            if inm and inm == etag and request.method == 'GET':
+                resp = Response(status=304)
+                resp["ETag"] = etag
+                resp["Cache-Control"] = "public, max-age=600"
+                return resp
+        except Exception:
+            etag = None
+        response = super().list(request, *args, **kwargs)
+        response["Cache-Control"] = "public, max-age=600"
+        if etag:
+            response["ETag"] = etag
+        return response
 
 
 # View for creating and listing listings
@@ -160,6 +176,48 @@ class ListingListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def list(self, request, *args, **kwargs):
+        # Compute ETag/Last-Modified from filtered queryset state prior to serialization
+        filtered_qs = self.filter_queryset(self.get_queryset())
+        latest = filtered_qs.aggregate(ts=Max("updated_at"))
+        last_ts = latest.get("ts")
+        etag = None
+        try:
+            from hashlib import md5
+            qp = request.query_params.dict()
+            page = qp.get("page", "1")
+            ordering = qp.get("ordering", "")
+            count_hint = filtered_qs.count()
+            key = f"list:{page}:{ordering}:{count_hint}:{last_ts.timestamp() if last_ts else ''}"
+            etag = 'W/"' + md5(key.encode()).hexdigest() + '"'
+            inm = request.META.get("HTTP_IF_NONE_MATCH")
+            if inm and inm == etag and request.method == 'GET':
+                resp = Response(status=304)
+                resp["ETag"] = etag
+                resp["Cache-Control"] = "public, max-age=30"
+                if last_ts:
+                    resp["Last-Modified"] = http_date(last_ts.timestamp())
+                return resp
+            # If-Modified-Since (fallback when no ETag match/header)
+            ims = request.META.get("HTTP_IF_MODIFIED_SINCE")
+            if ims and last_ts and request.method == 'GET':
+                since = parse_http_date_safe(ims)
+                if since is not None and int(last_ts.timestamp()) <= since:
+                    resp = Response(status=304)
+                    resp["Cache-Control"] = "public, max-age=30"
+                    resp["ETag"] = etag
+                    resp["Last-Modified"] = http_date(last_ts.timestamp())
+                    return resp
+        except Exception:
+            etag = None
+        response = super().list(request, *args, **kwargs)
+        response["Cache-Control"] = "public, max-age=30"
+        if etag:
+            response["ETag"] = etag
+        if last_ts:
+            response["Last-Modified"] = http_date(last_ts.timestamp())
+        return response
+
 
 # View for retrieving, updating, and deleting a single listing
 class ListingDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -169,6 +227,139 @@ class ListingDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_serializer_context(self):
         return {"request": self.request}
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Precompute ETag/Last-Modified
+        etag = None
+        last_ts = getattr(instance, "updated_at", None)
+        try:
+            from hashlib import md5
+            etag_key = f"listing:{instance.pk}:{last_ts.timestamp() if last_ts else ''}"
+            etag = 'W/"' + md5(etag_key.encode()).hexdigest() + '"'
+            inm = request.META.get("HTTP_IF_NONE_MATCH")
+            if inm and inm == etag and request.method == 'GET':
+                resp = Response(status=304)
+                resp["ETag"] = etag
+                resp["Cache-Control"] = "public, max-age=120"
+                if last_ts:
+                    resp["Last-Modified"] = http_date(last_ts.timestamp())
+                return resp
+            ims = request.META.get("HTTP_IF_MODIFIED_SINCE")
+            if ims and last_ts and request.method == 'GET':
+                since = parse_http_date_safe(ims)
+                if since is not None and int(last_ts.timestamp()) <= since:
+                    resp = Response(status=304)
+                    resp["Cache-Control"] = "public, max-age=120"
+                    resp["ETag"] = etag
+                    resp["Last-Modified"] = http_date(last_ts.timestamp())
+                    return resp
+        except Exception:
+            etag = None
+        response = super().retrieve(request, *args, **kwargs)
+        response["Cache-Control"] = "public, max-age=120"
+        if etag:
+            response["ETag"] = etag
+        if last_ts:
+            response["Last-Modified"] = http_date(last_ts.timestamp())
+        return response
+
+
+class ListingsFacetsView(APIView):
+    """Compute facets for Listings given current filters.
+    Returns counts for categories, negotiable yes/no, featured yes/no, and price ranges.
+    For each facet, we intentionally ignore that facet's own filter to provide full choices.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    PRICE_BUCKETS = [
+        (0, 50000),
+        (50000, 100000),
+        (100000, 200000),
+        (200000, 500000),
+        (500000, None),  # 500k+
+    ]
+
+    def _apply_filters(self, request, exclude: set[str] | None = None):
+        exclude = exclude or set()
+        # Copy query params but drop excluded keys
+        params = request.query_params.copy()
+        for key in list(params.keys()):
+            if key in exclude:
+                params.pop(key)
+        # Apply ListingFilter on the queryset
+        base_qs = Listing.objects.all()
+        filtered = ListingFilter(params, queryset=base_qs).qs
+        return filtered
+
+    def get(self, request):
+        # Total with all filters applied
+        total_qs = self._apply_filters(request)
+        total = total_qs.count()
+
+        # Categories facet (ignore current category filter)
+        categories_qs = self._apply_filters(request, exclude={"category"})
+        per_cat = (
+            categories_qs.values("category").annotate(count=Count("id")).order_by()
+        )
+        # Map category id -> name
+        cat_ids = [c["category"] for c in per_cat if c["category"] is not None]
+        cat_map = {c.id: c.name for c in Category.objects.filter(id__in=cat_ids)}
+        categories = [
+            {"id": c["category"], "name": cat_map.get(c["category"], ""), "count": c["count"]}
+            for c in per_cat
+            if c["category"] is not None
+        ]
+
+        # Negotiable facet (ignore negotiable filter)
+        negotiable_qs = self._apply_filters(request, exclude={"negotiable"})
+        neg_counts_raw = negotiable_qs.values("negotiable").annotate(count=Count("id"))
+        negotiable = {"true": 0, "false": 0}
+        for row in neg_counts_raw:
+            key = "true" if row["negotiable"] else "false"
+            negotiable[key] = row["count"]
+
+        # Featured facet (ignore is_featured filter)
+        featured_qs = self._apply_filters(request, exclude={"is_featured"})
+        feat_counts_raw = featured_qs.values("is_featured").annotate(count=Count("id"))
+        featured = {"true": 0, "false": 0}
+        for row in feat_counts_raw:
+            key = "true" if row["is_featured"] else "false"
+            featured[key] = row["count"]
+
+        # Price ranges (ignore price filters so we show full distribution under other filters)
+        price_qs = self._apply_filters(request, exclude={"min_price", "max_price"})
+        # Aggregate counts per bucket in one query
+        aggregations = {}
+        for idx, (lo, hi) in enumerate(self.PRICE_BUCKETS):
+            if hi is None:
+                cond = When(price__gte=lo, then=1)
+                label = f"{lo}+"
+            else:
+                cond = When(price__gte=lo, price__lt=hi, then=1)
+                label = f"{lo}-{hi}"
+            aggregations[f"b{idx}"] = Sum(Case(cond, default=0, output_field=IntegerField()))
+        agg = price_qs.aggregate(**aggregations)
+        price_ranges = []
+        for idx, (lo, hi) in enumerate(self.PRICE_BUCKETS):
+            label = (f"{int(lo)}+" if hi is None else f"{int(lo)}-{int(hi)}")
+            price_ranges.append({
+                "min": float(lo),
+                "max": (float(hi) if hi is not None else None),
+                "label": label,
+                "count": int(agg.get(f"b{idx}") or 0),
+            })
+
+        return Response(
+            {
+                "total": total,
+                "categories": categories,
+                "negotiable": negotiable,
+                "featured": featured,
+                "price_ranges": price_ranges,
+            }
+        )
 
 
 # View to list all of a user's conversations
@@ -555,3 +746,25 @@ class LocationsSuggestView(APIView):
             unique.sort(key=lambda s: s.lower())
         limit = 500 if return_all else 40
         return Response({"results": unique[:limit], "all": return_all})
+
+
+class RUMIngestView(APIView):
+    """Lightweight RUM/error ingest. Accepts arbitrary JSON events and logs them.
+    Intentionally unauthenticated but throttle-protected via DRF throttling if configured.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        data = request.data
+        # Minimal safety: drop excessively large payloads
+        try:
+            from json import dumps
+            s = dumps(data)
+            if len(s) > 10000:
+                return Response(status=413)
+            # Log to stdout; in real deployment route to logging/observability backend
+            print("[RUM]", s[:2000])
+        except Exception:
+            pass
+        return Response(status=204)

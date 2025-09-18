@@ -8,6 +8,7 @@ from .views import (
     CategoryListView,
     ListingListCreateView,
     ListingDetailView,
+    ListingsFacetsView,
     StartConversationView,
     ConversationListView,
     ConversationDetailView,
@@ -16,6 +17,7 @@ from .views import (
     MarkConversationReadView,
     SpecsMetadataView,
     LocationsSuggestView,
+    RUMIngestView,
 )
 
 urlpatterns = [
@@ -28,6 +30,7 @@ urlpatterns = [
     # Core
     path("categories/", CategoryListView.as_view(), name="category-list"),
     path("listings/", ListingListCreateView.as_view(), name="listing-list-create"),
+    path("listings/facets/", ListingsFacetsView.as_view(), name="listing-facets"),
     path("listings/<int:pk>/", ListingDetailView.as_view(), name="listing-detail"),
     path("conversations/", ConversationListView.as_view(), name="conversation-list"),
     path(
@@ -55,4 +58,5 @@ urlpatterns = [
     path(
         "locations-suggest/", LocationsSuggestView.as_view(), name="locations-suggest"
     ),
+    path("rum/", RUMIngestView.as_view(), name="rum-ingest"),
 ]
