@@ -97,7 +97,7 @@ DATABASES = {
 
 # --- CHANNELS / WEBSOCKETS ---
 # Use Redis if available; fall back to in-memory for dev if REDIS_URL not set.
-_redis_url = os.environ.get("REDIS_URL")
+_redis_url = os.environ.get("REDISCLOUD_URL")
 if _redis_url:
     CHANNEL_LAYERS = {
         "default": {

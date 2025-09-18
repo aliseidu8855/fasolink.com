@@ -1,6 +1,4 @@
 from urllib.parse import parse_qs
-from django.contrib.auth.models import AnonymousUser
-from rest_framework.authtoken.models import Token
 
 
 class TokenAuthMiddleware:
@@ -20,6 +18,8 @@ class TokenAuthMiddleware:
 
     @staticmethod
     async def get_user(token_key):
+        # Lazy import to ensure Django apps are loaded
+        from django.contrib.auth.models import AnonymousUser
         if not token_key:
             return AnonymousUser()
         try:
@@ -31,6 +31,8 @@ class TokenAuthMiddleware:
     @staticmethod
     async def _get_token(key):
         from asgiref.sync import sync_to_async
+        # Lazy import Token model to avoid early model import
+        from rest_framework.authtoken.models import Token
         return await sync_to_async(Token.objects.select_related('user').filter(key=key).first)()
 
 
