@@ -159,6 +159,40 @@ class ListingSerializer(serializers.ModelSerializer):
             ListingImage.objects.create(listing=listing, image=image)
         return listing
 
+    def update(self, instance, validated_data):
+        """Allow PATCH to append images and upsert attributes while updating core fields."""
+        uploaded_images = validated_data.pop("uploaded_images", [])
+        attributes = validated_data.pop("attributes", None)
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+        # Append any newly uploaded images
+        for image in uploaded_images:
+            ListingImage.objects.create(listing=instance, image=image)
+        # Upsert attributes if provided (replace existing keys provided in payload)
+        if attributes is not None:
+            if isinstance(attributes, dict):
+                attributes = [attributes]
+            # Build map for quick replace
+            provided = {str(a.get("name")).strip()[:80]: str(a.get("value", ""))[:255] for a in attributes if a.get("name")}
+            if provided:
+                existing = {a.name: a for a in instance.attributes.all()}
+                to_update = []
+                to_create = []
+                for name, value in provided.items():
+                    if name in existing:
+                        obj = existing[name]
+                        if obj.value != value:
+                            obj.value = value
+                            to_update.append(obj)
+                    else:
+                        to_create.append(ListingAttribute(listing=instance, name=name, value=value))
+                if to_update:
+                    ListingAttribute.objects.bulk_update(to_update, ["value"])
+                if to_create:
+                    ListingAttribute.objects.bulk_create(to_create, ignore_conflicts=True)
+        return instance
+
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.ReadOnlyField(source="sender.username")
