@@ -8,6 +8,7 @@ from .models import (
     Message,
     MessageRead,
     ListingAttribute,
+    MessageAttachment,
 )
 from django.utils.translation import gettext_lazy as _
 
@@ -197,10 +198,12 @@ class ListingSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.ReadOnlyField(source="sender.username")
     is_read = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField(read_only=True)
+    uploaded_files = serializers.ListField(child=serializers.FileField(use_url=False), write_only=True, required=False)
 
     class Meta:
         model = Message
-        fields = ["id", "sender", "content", "timestamp", "is_read"]
+        fields = ["id", "sender", "content", "timestamp", "is_read", "attachments", "uploaded_files"]
 
     def get_is_read(self, obj):
         request = self.context.get("request")
@@ -209,6 +212,20 @@ class MessageSerializer(serializers.ModelSerializer):
         if obj.sender_id == request.user.id:
             return True  # Always consider own messages as read
         return MessageRead.objects.filter(message=obj, user=request.user).exists()
+
+    def get_attachments(self, obj):
+        request = self.context.get("request")
+        items = []
+        for att in obj.attachments.all():
+            try:
+                url = att.file.url
+                if request:
+                    # For cloud storage backends the url is absolute; build_absolute_uri is safe
+                    url = request.build_absolute_uri(url)
+                items.append({"id": att.id, "url": url, "name": getattr(att.file, 'name', None)})
+            except Exception:
+                continue
+        return items
 
 
 class ConversationSerializer(serializers.ModelSerializer):

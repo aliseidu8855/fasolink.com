@@ -8,6 +8,7 @@ from .models import (
     Conversation,
     Message,
     MessageRead,
+    MessageAttachment,
 )
 from .query_utils import with_seller_rating
 from .serializers import (
@@ -504,12 +505,31 @@ class ConversationMessagesView(generics.ListCreateAPIView):
         if self.request.user not in conversation.participants.all():
             raise PermissionDenied("You are not a participant in this conversation.")
         msg = serializer.save(sender=self.request.user, conversation=conversation)
+        # Handle uploaded files (multipart)
+        files = self.request.FILES.getlist('uploaded_files') or []
+        if files:
+            for f in files:
+                MessageAttachment.objects.create(message=msg, file=f)
         # Broadcast new message to websocket listeners
+        # Build attachments payload with absolute URLs
+        atts = []
+        try:
+            for att in msg.attachments.all():
+                url = att.file.url
+                try:
+                    url = self.request.build_absolute_uri(url)
+                except Exception:
+                    pass
+                atts.append({"id": att.id, "url": url, "name": getattr(att.file, 'name', None)})
+        except Exception:
+            atts = []
         payload = {
             "id": msg.id,
             "content": msg.content,
             "sender_id": msg.sender_id,
+            "sender": msg.sender.username,
             "timestamp": msg.timestamp.isoformat(),
+            "attachments": atts,
         }
         try:
             broadcast_conversation_message(conversation.id, payload)

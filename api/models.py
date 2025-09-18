@@ -82,7 +82,7 @@ class Message(models.Model):
     sender = models.ForeignKey(
         User, related_name="sent_messages", on_delete=models.CASCADE
     )
-    content = models.TextField()
+    content = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -90,6 +90,16 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.timestamp}"
+
+
+class MessageAttachment(models.Model):
+    """File attachments for messages."""
+    message = models.ForeignKey(Message, related_name="attachments", on_delete=models.CASCADE)
+    file = models.FileField(upload_to="message_attachments/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Attachment {self.id} for message {self.message_id}"
 
 
 class MessageRead(models.Model):
