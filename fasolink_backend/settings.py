@@ -15,6 +15,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 ROOT_URLCONF = "fasolink_backend.urls"
 WSGI_APPLICATION = "fasolink_backend.wsgi.application"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+ASGI_APPLICATION = "fasolink_backend.asgi.application"
 
 ## --- DEPLOYMENT & SECURITY ---
 DEBUG = os.environ.get("DEBUG", "").lower() in {"1","true","yes"} or ("RENDER" not in os.environ and "HEROKU" not in os.environ)
@@ -63,6 +64,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     "django_filters",
+    "channels",
     "api",
 ]
 
@@ -93,6 +95,22 @@ DATABASES = {
     )
 }
 
+# --- CHANNELS / WEBSOCKETS ---
+# Use Redis if available; fall back to in-memory for dev if REDIS_URL not set.
+_redis_url = os.environ.get("REDIS_URL")
+if _redis_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [_redis_url]},
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 ## --- FILE STORAGE (CLOUDINARY) ---
 # This is the only file storage configuration that should exist.
 CLOUDINARY_STORAGE = {

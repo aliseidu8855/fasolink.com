@@ -26,6 +26,7 @@ from rest_framework import filters as drf_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import PermissionDenied
 from .filters import ListingFilter
+from .ws_events import broadcast_conversation_message, broadcast_conversation_read, notify_user
 from rest_framework.views import APIView
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
@@ -311,7 +312,22 @@ class ConversationMessagesView(generics.ListCreateAPIView):
         )
         if self.request.user not in conversation.participants.all():
             raise PermissionDenied("You are not a participant in this conversation.")
-        serializer.save(sender=self.request.user, conversation=conversation)
+        msg = serializer.save(sender=self.request.user, conversation=conversation)
+        # Broadcast new message to websocket listeners
+        payload = {
+            "id": msg.id,
+            "content": msg.content,
+            "sender_id": msg.sender_id,
+            "timestamp": msg.timestamp.isoformat(),
+        }
+        try:
+            broadcast_conversation_message(conversation.id, payload)
+            # Notify the other participant on their user channel for list refresh/unread badge
+            for u in conversation.participants.exclude(id=self.request.user.id):
+                notify_user(u.id, {"event": "conversation.updated", "conversation_id": conversation.id})
+        except Exception:
+            # Non-blocking: do not fail REST on ws broadcast issues
+            pass
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -337,6 +353,11 @@ class MarkConversationReadView(APIView):
             if to_create:
                 MessageRead.objects.bulk_create(to_create, ignore_conflicts=True)
                 created = len(to_create)
+        # Broadcast read receipts
+        try:
+            broadcast_conversation_read(conversation.id, request.user.id, created)
+        except Exception:
+            pass
         return Response({"updated": created}, status=status.HTTP_200_OK)
 
 
