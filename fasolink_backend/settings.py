@@ -96,8 +96,9 @@ DATABASES = {
 }
 
 # --- CHANNELS / WEBSOCKETS ---
-# Use Redis if available; fall back to in-memory for dev if REDIS_URL not set.
-_redis_url = os.environ.get("REDISCLOUD_URL")
+# Use Redis if available; fall back to in-memory for dev.
+# Accept either Heroku Redis Cloud var or generic REDIS_URL.
+_redis_url = os.environ.get("REDISCLOUD_URL") or os.environ.get("REDIS_URL")
 if _redis_url:
     CHANNEL_LAYERS = {
         "default": {

@@ -22,18 +22,15 @@ class TokenAuthMiddleware:
         from django.contrib.auth.models import AnonymousUser
         if not token_key:
             return AnonymousUser()
-        try:
-            token = await TokenAuthMiddleware._get_token(token_key)
-            return token.user if token else AnonymousUser()
-        except Exception:
-            return AnonymousUser()
+        token = await TokenAuthMiddleware._get_token(token_key)
+        return token.user if token else AnonymousUser()
 
     @staticmethod
     async def _get_token(key):
         from asgiref.sync import sync_to_async
-        # Lazy import Token model to avoid early model import
-        from rest_framework.authtoken.models import Token
-        return await sync_to_async(Token.objects.select_related('user').filter(key=key).first)()
+        from django.apps import apps
+        TokenModel = apps.get_model('authtoken', 'Token')
+        return await sync_to_async(TokenModel.objects.select_related('user').filter(key=key).first)()
 
 
 def TokenAuthMiddlewareStack(inner):
