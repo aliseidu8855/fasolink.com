@@ -163,3 +163,22 @@ class ListingAttribute(models.Model):
 
     def __str__(self):
         return f"{self.listing_id}:{self.name}={self.value[:30]}"
+
+
+class PushSubscription(models.Model):
+    """Stores Web Push subscriptions per user (VAPID-based)."""
+    user = models.ForeignKey(User, related_name="push_subscriptions", on_delete=models.CASCADE)
+    endpoint = models.URLField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "endpoint"]),
+        ]
+
+    def __str__(self):
+        return f"PushSub {self.user_id} {self.endpoint[:30]}..."

@@ -19,6 +19,7 @@ from .views import (
     SpecsMetadataView,
     LocationsSuggestView,
     RUMIngestView,
+    PushSubscriptionView,
 )
 
 urlpatterns = [
@@ -61,4 +62,5 @@ urlpatterns = [
         "locations-suggest/", LocationsSuggestView.as_view(), name="locations-suggest"
     ),
     path("rum/", RUMIngestView.as_view(), name="rum-ingest"),
+    path("push-subscriptions/", PushSubscriptionView.as_view(), name="push-subscriptions"),
 ]

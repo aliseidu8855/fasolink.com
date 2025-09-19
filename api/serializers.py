@@ -9,6 +9,7 @@ from .models import (
     MessageRead,
     ListingAttribute,
     MessageAttachment,
+    PushSubscription,
 )
 from django.utils.translation import gettext_lazy as _
 
@@ -318,3 +319,9 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
             return 0
         qs = obj.messages.exclude(sender=request.user)
         return qs.exclude(reads__user=request.user).count()
+
+
+class PushSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PushSubscription
+        fields = ["id", "endpoint", "p256dh", "auth", "user_agent", "created_at", "updated_at"]

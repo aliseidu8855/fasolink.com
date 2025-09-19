@@ -9,6 +9,7 @@ from .models import (
     Message,
     MessageRead,
     MessageAttachment,
+    PushSubscription,
 )
 from .query_utils import with_seller_rating
 from .serializers import (
@@ -18,6 +19,7 @@ from .serializers import (
     ConversationSerializer,
     MessageSerializer,
     ConversationDetailSerializer,
+    PushSubscriptionSerializer,
 )
 from .permissions import IsOwnerOrReadOnly
 from django.shortcuts import get_object_or_404
@@ -31,6 +33,13 @@ from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, IntegerField, Sum, Case, When, Max, Q
 from django.utils.http import http_date, parse_http_date_safe
+from django.conf import settings
+import json
+try:
+    from pywebpush import webpush, WebPushException
+except Exception:
+    webpush = None
+    WebPushException = Exception
 
 
 # View for User Registration
@@ -577,6 +586,31 @@ class ConversationMessagesView(generics.ListCreateAPIView):
             # Notify the other participant on their user channel for list refresh/unread badge
             for u in conversation.participants.exclude(id=self.request.user.id):
                 notify_user(u.id, {"event": "conversation.updated", "conversation_id": conversation.id})
+                # Attempt Web Push notification
+                if webpush and getattr(settings, 'VAPID_PUBLIC_KEY', None) and getattr(settings, 'VAPID_PRIVATE_KEY', None):
+                    subs = PushSubscription.objects.filter(user=u)
+                    for sub in subs:
+                        try:
+                            webpush(
+                                subscription_info={
+                                    "endpoint": sub.endpoint,
+                                    "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+                                },
+                                data=json.dumps({
+                                    "title": "Nouveau message",
+                                    "body": f"{msg.sender.username}: {msg.content[:120] if msg.content else '📎'}",
+                                    "url": f"/messages/{conversation.id}",
+                                }),
+                                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                                vapid_claims={"sub": f"mailto:{getattr(settings, 'DEFAULT_FROM_EMAIL', 'admin@example.com')}"},
+                                timeout=5,
+                            )
+                        except WebPushException:
+                            # On 410/404 remove subscription
+                            try:
+                                sub.delete()
+                            except Exception:
+                                pass
         except Exception:
             # Non-blocking: do not fail REST on ws broadcast issues
             pass
@@ -754,4 +788,30 @@ class RUMIngestView(APIView):
             print("[RUM]", s[:2000])
         except Exception:
             pass
+        return Response(status=204)
+
+
+class PushSubscriptionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PushSubscriptionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        sub, _created = PushSubscription.objects.update_or_create(
+            endpoint=data["endpoint"],
+            defaults={
+                "user": request.user,
+                "p256dh": data["p256dh"],
+                "auth": data["auth"],
+                "user_agent": data.get("user_agent", ""),
+            },
+        )
+        return Response(PushSubscriptionSerializer(sub).data, status=201)
+
+    def delete(self, request):
+        endpoint = request.data.get("endpoint")
+        if not endpoint:
+            return Response({"error": "endpoint required"}, status=400)
+        PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
         return Response(status=204)
