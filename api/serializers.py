@@ -63,6 +63,7 @@ class ListingImageSerializer(serializers.ModelSerializer):
 class ListingSerializer(serializers.ModelSerializer):
     images = ListingImageSerializer(many=True, read_only=True)
     user = serializers.ReadOnlyField(source="user.username")
+    category_name = serializers.ReadOnlyField(source="category.name")
     uploaded_images = serializers.ListField(
         child=serializers.ImageField(use_url=False), write_only=True, required=False
     )
@@ -82,6 +83,7 @@ class ListingSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "category",
+            "category_name",
             "location",
             "user",
             "created_at",
@@ -131,9 +133,20 @@ class ListingSerializer(serializers.ModelSerializer):
 
     def get_attributes_out(self, obj):
         # Return dict list of dynamic attributes
-        return [
-            {"name": a.name, "value": a.value} for a in getattr(obj, "attributes").all()
-        ]
+        try:
+            qs = getattr(obj, "attributes").all()
+        except Exception:
+            qs = []
+        items = []
+        for a in qs:
+            try:
+                nm = str(a.name) if a.name is not None else ""
+                val = str(a.value) if a.value is not None else ""
+                if nm and val:
+                    items.append({"name": nm, "value": val})
+            except Exception:
+                continue
+        return items
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop("uploaded_images", [])
@@ -150,9 +163,16 @@ class ListingSerializer(serializers.ModelSerializer):
         for attr in attributes:
             name = attr.get("name")
             value = attr.get("value")
-            if name and value:
+            # Coerce to strings to avoid TypeError from slicing non-strings
+            try:
+                name_s = ("" if name is None else str(name)).strip()
+                value_s = ("" if value is None else str(value)).strip()
+            except Exception:
+                name_s = str(name) if name is not None else ""
+                value_s = str(value) if value is not None else ""
+            if name_s and value_s:
                 attr_objs.append(
-                    ListingAttribute(listing=listing, name=name[:80], value=value[:255])
+                    ListingAttribute(listing=listing, name=name_s[:80], value=value_s[:255])
                 )
         if attr_objs:
             ListingAttribute.objects.bulk_create(attr_objs, ignore_conflicts=True)
