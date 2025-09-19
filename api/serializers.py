@@ -324,4 +324,4 @@ class ConversationDetailSerializer(serializers.ModelSerializer):
 class PushSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PushSubscription
-        fields = ["id", "endpoint", "p256dh", "auth", "user_agent", "created_at", "updated_at"]
+        fields = ["id", "endpoint", "p256dh", "auth", "user_agent", "lang", "created_at", "updated_at"]

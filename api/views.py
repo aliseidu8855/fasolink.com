@@ -33,6 +33,7 @@ from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, IntegerField, Sum, Case, When, Max, Q
 from django.utils.http import http_date, parse_http_date_safe
+from django.core.cache import cache
 from django.conf import settings
 import json
 try:
@@ -588,17 +589,31 @@ class ConversationMessagesView(generics.ListCreateAPIView):
                 notify_user(u.id, {"event": "conversation.updated", "conversation_id": conversation.id})
                 # Attempt Web Push notification
                 if webpush and getattr(settings, 'VAPID_PUBLIC_KEY', None) and getattr(settings, 'VAPID_PRIVATE_KEY', None):
+                    # Throttle push per user+conversation to avoid spamming; 30s cooldown
+                    throttle_key = f"push:conv:{conversation.id}:user:{u.id}"
+                    if cache.get(throttle_key):
+                        continue
+                    cache.set(throttle_key, True, 30)
                     subs = PushSubscription.objects.filter(user=u)
                     for sub in subs:
                         try:
+                            lang = (sub.lang or 'fr').lower()
+                            t_title = {
+                                'fr': 'Nouveau message',
+                                'en': 'New message',
+                            }.get(lang, 'New message')
+                            preview = (msg.content or '📎')
+                            if len(preview) > 120:
+                                preview = preview[:117] + '...'
+                            t_body = f"{msg.sender.username}: {preview}"
                             webpush(
                                 subscription_info={
                                     "endpoint": sub.endpoint,
                                     "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
                                 },
                                 data=json.dumps({
-                                    "title": "Nouveau message",
-                                    "body": f"{msg.sender.username}: {msg.content[:120] if msg.content else '📎'}",
+                                    "title": t_title,
+                                    "body": t_body,
                                     "url": f"/messages/{conversation.id}",
                                 }),
                                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
@@ -805,6 +820,7 @@ class PushSubscriptionView(APIView):
                 "p256dh": data["p256dh"],
                 "auth": data["auth"],
                 "user_agent": data.get("user_agent", ""),
+                "lang": data.get("lang", "fr"),
             },
         )
         return Response(PushSubscriptionSerializer(sub).data, status=201)

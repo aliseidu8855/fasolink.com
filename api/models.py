@@ -171,6 +171,7 @@ class PushSubscription(models.Model):
     endpoint = models.URLField(unique=True)
     p256dh = models.CharField(max_length=255)
     auth = models.CharField(max_length=255)
+    lang = models.CharField(max_length=8, blank=True, null=True)
     user_agent = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
