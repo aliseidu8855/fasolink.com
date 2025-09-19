@@ -29,7 +29,7 @@ from .ws_events import broadcast_conversation_message, broadcast_conversation_re
 from rest_framework.views import APIView
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Count, IntegerField, Sum, Case, When, Max
+from django.db.models import Count, IntegerField, Sum, Case, When, Max, Q
 from django.utils.http import http_date, parse_http_date_safe
 
 
@@ -146,7 +146,7 @@ class CategoryListView(generics.ListAPIView):
 
 # View for creating and listing listings
 class ListingListCreateView(generics.ListCreateAPIView):
-    queryset = Listing.objects.all().order_by("-created_at")
+    queryset = Listing.objects.filter(is_active=True, archived=False).order_by("-created_at")
     serializer_class = ListingSerializer
     permission_classes = [
         permissions.IsAuthenticatedOrReadOnly
@@ -231,6 +231,9 @@ class ListingDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
+        # Hide inactive/archived to non-owners
+        if (not instance.is_active or instance.archived) and (not request.user.is_authenticated or request.user.id != instance.user_id):
+            return Response(status=404)
         # Precompute ETag/Last-Modified
         etag = None
         last_ts = getattr(instance, "updated_at", None)
@@ -316,7 +319,7 @@ class ListingsFacetsView(APIView):
             if key in exclude:
                 params.pop(key)
         # Apply ListingFilter on the queryset
-        base_qs = Listing.objects.all()
+        base_qs = Listing.objects.filter(is_active=True, archived=False)
         filtered = ListingFilter(params, queryset=base_qs).qs
         return filtered
 
