@@ -574,171 +574,97 @@ class MarkConversationReadView(APIView):
 
 class SpecsMetadataView(APIView):
     """Return allowed specification fields for a given high-level category.
-    For now static definitions; can be moved to database later.
-    /api/specs-metadata/?category=Phones
+    Static for now; can move to DB later.
+    /api/specs-metadata/?category=Electronics
     """
 
     permission_classes = [permissions.AllowAny]
 
+    # Canonical category keys
+    FASHION = "Fashion"
+    PROPERTIES = "Properties"
+    MOBILE_TABLET = "Mobile & Tablet"
+    ELECTRONICS = "Electronics"
+
+    # Finalized specs for the four categories
     CATEGORY_SPECS = {
-        "Phones": [
+        FASHION: [
+            {"name": "Type", "key": "type", "required": True, "type": "select", "options": ["Clothing", "Shoes", "Bags & Accessories"]},
+            {"name": "Brand", "key": "brand", "required": False, "type": "text"},
+            {"name": "Gender", "key": "gender", "required": False, "type": "select", "options": ["Men", "Women", "Unisex", "Kids"]},
+            {"name": "Size", "key": "size", "required": True, "type": "text"},
+            {"name": "Color", "key": "color", "required": False, "type": "text"},
+            {"name": "Material", "key": "material", "required": False, "type": "text"},
+            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
+            {"name": "Authentic", "key": "authentic", "required": False, "type": "boolean"},
+        ],
+        PROPERTIES: [
+            {"name": "Property Type", "key": "property_type", "required": True, "type": "select", "options": ["Apartment", "House", "Land", "Commercial"]},
+            {"name": "Bedrooms", "key": "bedrooms", "required": False, "type": "number"},
+            {"name": "Bathrooms", "key": "bathrooms", "required": False, "type": "number"},
+            {"name": "Size (sqm)", "key": "size_sqm", "required": False, "type": "number"},
+            {"name": "Furnished", "key": "furnished", "required": False, "type": "boolean"},
+            {"name": "Year Built", "key": "year_built", "required": False, "type": "number"},
+            {"name": "Condition", "key": "condition", "required": False, "type": "select", "options": ["New", "Used"]},
+        ],
+        MOBILE_TABLET: [
+            {"name": "Device Type", "key": "device_type", "required": True, "type": "select", "options": ["Phone", "Tablet"]},
             {"name": "Brand", "key": "brand", "required": True, "type": "text"},
             {"name": "Model", "key": "model", "required": True, "type": "text"},
-            {
-                "name": "Condition",
-                "key": "condition",
-                "required": True,
-                "type": "select",
-                "options": ["New", "Used"],
-            },
-            {
-                "name": "Second Condition",
-                "key": "second_condition",
-                "required": False,
-                "type": "text",
-            },
-            {
-                "name": "Screen Size (inches)",
-                "key": "screen_size",
-                "required": False,
-                "type": "number",
-            },
-            {"name": "Ram", "key": "ram", "required": False, "type": "text"},
-            {
-                "name": "Internal Storage",
-                "key": "internal_storage",
-                "required": True,
-                "type": "text",
-            },
+            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
+            {"name": "Storage", "key": "internal_storage", "required": True, "type": "select", "options": ["16GB", "32GB", "64GB", "128GB", "256GB", "512GB", "1TB"]},
+            {"name": "RAM", "key": "ram", "required": False, "type": "select", "options": ["2GB", "3GB", "4GB", "6GB", "8GB", "12GB", "16GB"]},
             {"name": "Color", "key": "color", "required": True, "type": "text"},
-            {
-                "name": "Operating System",
-                "key": "os",
-                "required": False,
-                "type": "text",
-            },
-            {
-                "name": "Display Type",
-                "key": "display_type",
-                "required": False,
-                "type": "text",
-            },
-            {
-                "name": "Resolution",
-                "key": "resolution",
-                "required": False,
-                "type": "text",
-            },
-            {"name": "SIM", "key": "sim", "required": False, "type": "text"},
-            {
-                "name": "Card Slot",
-                "key": "card_slot",
-                "required": False,
-                "type": "text",
-            },
-            {
-                "name": "Main Camera",
-                "key": "main_camera",
-                "required": False,
-                "type": "text",
-            },
-            {
-                "name": "Selfie Camera",
-                "key": "selfie_camera",
-                "required": False,
-                "type": "text",
-            },
-            {
-                "name": "Battery (mAh)",
-                "key": "battery",
-                "required": False,
-                "type": "number",
-            },
-            {"name": "Features", "key": "features", "required": False, "type": "text"},
-            {
-                "name": "Exchange Possible",
-                "key": "exchange_possible",
-                "required": False,
-                "type": "boolean",
-            },
+            {"name": "Screen Size (in)", "key": "screen_size", "required": False, "type": "number"},
+            {"name": "Battery (mAh)", "key": "battery", "required": False, "type": "number"},
+            {"name": "OS", "key": "os", "required": False, "type": "select", "options": ["Android", "iOS", "HarmonyOS", "Other"]},
+            {"name": "SIM", "key": "sim", "required": False, "type": "select", "options": ["Single SIM", "Dual SIM", "eSIM"]},
+            {"name": "Network", "key": "network", "required": False, "type": "select", "options": ["2G", "3G", "4G", "5G"]},
+            {"name": "Exchange Possible", "key": "exchange_possible", "required": False, "type": "boolean"},
         ],
-        "Cars": [
-            {"name": "Make", "key": "make", "required": True, "type": "text"},
-            {"name": "Model", "key": "model", "required": True, "type": "text"},
-            {"name": "Year", "key": "year", "required": True, "type": "number"},
-            {
-                "name": "Transmission",
-                "key": "transmission",
-                "required": False,
-                "type": "select",
-                "options": ["Automatic", "Manual"],
-            },
-            {
-                "name": "Fuel Type",
-                "key": "fuel_type",
-                "required": False,
-                "type": "select",
-                "options": ["Petrol", "Diesel", "Electric", "Hybrid"],
-            },
-            {"name": "Mileage", "key": "mileage", "required": False, "type": "number"},
-            {"name": "Color", "key": "color", "required": False, "type": "text"},
-            {
-                "name": "Condition",
-                "key": "condition",
-                "required": True,
-                "type": "select",
-                "options": ["New", "Used"],
-            },
-        ],
-        "Real Estate": [
-            {
-                "name": "Property Type",
-                "key": "property_type",
-                "required": True,
-                "type": "select",
-                "options": ["Apartment", "House", "Land"],
-            },
-            {
-                "name": "Bedrooms",
-                "key": "bedrooms",
-                "required": False,
-                "type": "number",
-            },
-            {
-                "name": "Bathrooms",
-                "key": "bathrooms",
-                "required": False,
-                "type": "number",
-            },
-            {"name": "Size (sqm)", "key": "size", "required": False, "type": "number"},
-            {
-                "name": "Furnished",
-                "key": "furnished",
-                "required": False,
-                "type": "boolean",
-            },
-        ],
-        "Electronics": [
+        ELECTRONICS: [
+            {"name": "Type", "key": "type", "required": True, "type": "select", "options": ["TV", "Laptop", "Camera", "Gaming", "Audio", "Appliance", "Other"]},
             {"name": "Brand", "key": "brand", "required": False, "type": "text"},
             {"name": "Model", "key": "model", "required": False, "type": "text"},
-            {
-                "name": "Condition",
-                "key": "condition",
-                "required": True,
-                "type": "select",
-                "options": ["New", "Used"],
-            },
+            {"name": "Condition", "key": "condition", "required": True, "type": "select", "options": ["New", "Used"]},
+            {"name": "Power (W)", "key": "power_w", "required": False, "type": "number"},
         ],
     }
 
+    # Accept legacy/synonym names from existing categories
+    SYNONYMS = {
+        "phones": MOBILE_TABLET,
+        "phone": MOBILE_TABLET,
+        "mobile": MOBILE_TABLET,
+        "mobile & tablet": MOBILE_TABLET,
+        "mobile and tablet": MOBILE_TABLET,
+        "mobile phones & tablets": MOBILE_TABLET,
+        "mobile phones and tablets": MOBILE_TABLET,
+        "mobile phone & tablet": MOBILE_TABLET,
+        "mobile phone and tablet": MOBILE_TABLET,
+        "mobile phone or tablet": MOBILE_TABLET,
+        "real estate": PROPERTIES,
+        "properties": PROPERTIES,
+        "property": PROPERTIES,
+        "fashion": FASHION,
+        "electronics": ELECTRONICS,
+        "electonics": ELECTRONICS,  # common misspelling
+    }
+
     def get(self, request):
-        category = request.query_params.get("category")
-        if not category:
+        raw = request.query_params.get("category")
+        if not raw:
             return Response({"error": "category query param required"}, status=400)
-        specs = self.CATEGORY_SPECS.get(category)
-        if specs is None:
+        key = (raw or "").strip()
+        # Normalize case/spacing
+        norm = key.lower().strip()
+        canonical = self.SYNONYMS.get(norm, None)
+        if canonical is None and key in self.CATEGORY_SPECS:
+            canonical = key
+        if canonical is None:
             return Response({"error": "unknown category"}, status=404)
-        return Response({"category": category, "specs": specs})
+        specs = self.CATEGORY_SPECS.get(canonical)
+        return Response({"category": canonical, "specs": specs})
 
 
 class LocationsSuggestView(APIView):

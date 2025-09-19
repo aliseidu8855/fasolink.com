@@ -68,3 +68,50 @@ class ListingsEndpointTests(TestCase):
         first = response.data["results"][0]
         self.assertIn("seller_rating", first)
         self.assertIn("seller_rating_count", first)
+
+
+class SpecsMetadataTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_fashion_specs_shape(self):
+        resp = self.client.get("/api/specs-metadata/", {"category": "Fashion"})
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        data = resp.json()
+        self.assertEqual(data["category"], "Fashion")
+        keys = {f["key"] for f in data["specs"]}
+        self.assertIn("type", keys)
+        self.assertIn("size", keys)
+        # type and condition should be select
+        type_field = next(f for f in data["specs"] if f["key"] == "type")
+        self.assertEqual(type_field["type"], "select")
+        cond_field = next(f for f in data["specs"] if f["key"] == "condition")
+        self.assertEqual(cond_field["type"], "select")
+
+    def test_phones_synonym_maps_to_mobile_tablet(self):
+        # Legacy/alt name 'Phones' should normalize to 'Mobile & Tablet'
+        resp = self.client.get("/api/specs-metadata/", {"category": "Phones"})
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        data = resp.json()
+        self.assertEqual(data["category"], "Mobile & Tablet")
+        keys = {f["key"] for f in data["specs"]}
+        self.assertIn("internal_storage", keys)
+        st = next(f for f in data["specs"] if f["key"] == "internal_storage")
+        self.assertTrue(st["required"])  # storage is required
+
+    def test_properties_specs(self):
+        resp = self.client.get("/api/specs-metadata/", {"category": "Properties"})
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        data = resp.json()
+        self.assertEqual(data["category"], "Properties")
+        keys = {f["key"] for f in data["specs"]}
+        self.assertIn("property_type", keys)
+        self.assertIn("size_sqm", keys)
+
+    def test_electronics_specs(self):
+        resp = self.client.get("/api/specs-metadata/", {"category": "Electronics"})
+        self.assertEqual(resp.status_code, 200, msg=resp.content)
+        data = resp.json()
+        self.assertEqual(data["category"], "Electronics")
+        keys = {f["key"] for f in data["specs"]}
+        self.assertIn("type", keys)
