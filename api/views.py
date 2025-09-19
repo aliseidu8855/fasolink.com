@@ -145,13 +145,19 @@ class CategoryListView(generics.ListAPIView):
 
 
 # View for creating and listing listings
+class ListingsPagination(PageNumberPagination):
+    page_size = 12
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class ListingListCreateView(generics.ListCreateAPIView):
     queryset = Listing.objects.filter(is_active=True, archived=False).order_by("-created_at")
     serializer_class = ListingSerializer
     permission_classes = [
         permissions.IsAuthenticatedOrReadOnly
     ]  # Only logged-in users can create
-    pagination_class = PageNumberPagination
+    pagination_class = ListingsPagination
 
     # Configure filtering and searching
     filter_backends = [
