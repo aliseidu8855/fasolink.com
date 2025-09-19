@@ -11,6 +11,8 @@ class ListingFilter(filters.FilterSet):
     search = filters.CharFilter(method="filter_by_search_text")
     negotiable = filters.BooleanFilter(field_name="negotiable")
     is_featured = filters.BooleanFilter(field_name="is_featured")
+    is_active = filters.BooleanFilter(field_name="is_active")
+    archived = filters.BooleanFilter(field_name="archived")
     min_rating = filters.NumberFilter(field_name="rating", lookup_expr="gte")
     # Match exact town (case-insensitive) in the location field, when provided as ?town=Town%20Name
     town = filters.CharFilter(method="filter_by_town")
@@ -22,6 +24,8 @@ class ListingFilter(filters.FilterSet):
             "location",
             "negotiable",
             "is_featured",
+            "is_active",
+            "archived",
             "town",
         ]  # Allow exact filtering on these fields
 

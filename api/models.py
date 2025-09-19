@@ -43,6 +43,9 @@ class Listing(models.Model):
     is_open_now = models.BooleanField(default=False)
     # Contact phone (simple string; could be normalized later)
     contact_phone = models.CharField(max_length=40, blank=True, null=True, help_text="Primary contact phone for this listing")
+    # Basic lifecycle flags for dashboard (active/draft/archived). Draft state is implicit when not yet published elsewhere.
+    is_active = models.BooleanField(default=True, db_index=True)
+    archived = models.BooleanField(default=False, db_index=True)
 
     def __str__(self):
         return self.title

@@ -266,6 +266,32 @@ class ListingDetailView(generics.RetrieveUpdateDestroyAPIView):
         return response
 
 
+class ListingQuickToggleView(APIView):
+    """Owner-only lightweight toggle of status fields (active/archived/featured)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        listing = get_object_or_404(Listing, pk=pk)
+        if listing.user_id != request.user.id:
+            raise PermissionDenied("Not owner")
+        action = request.data.get("action")
+        if action == "toggle_active":
+            listing.is_active = not bool(listing.is_active)
+        elif action == "toggle_featured":
+            listing.is_featured = not bool(listing.is_featured)
+        elif action == "archive":
+            listing.archived = True
+            listing.is_active = False
+        elif action == "unarchive":
+            listing.archived = False
+            listing.is_active = True
+        else:
+            return Response({"error": "unknown action"}, status=status.HTTP_400_BAD_REQUEST)
+        listing.save(update_fields=["is_active", "is_featured", "archived", "updated_at"])
+        serializer = ListingSerializer(listing, context={"request": request})
+        return Response(serializer.data)
+
+
 class ListingsFacetsView(APIView):
     """Compute facets for Listings given current filters.
     Returns counts for categories, negotiable yes/no, featured yes/no, and price ranges.
@@ -466,9 +492,15 @@ class UserListingsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return with_seller_rating(
-            Listing.objects.filter(user=self.request.user)
-        ).order_by("-created_at")
+        qs = Listing.objects.filter(user=self.request.user)
+        # Allow filtering via query params for dashboard chips
+        is_active = self.request.query_params.get("is_active")
+        archived = self.request.query_params.get("archived")
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active in ["1","true","True"])
+        if archived is not None:
+            qs = qs.filter(archived=archived in ["1","true","True"])
+        return with_seller_rating(qs).order_by("-updated_at", "-created_at")
 
     def get_serializer_context(self):
         return {"request": self.request}

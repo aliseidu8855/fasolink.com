@@ -89,6 +89,8 @@ class ListingSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_featured",
+            "is_active",
+            "archived",
             "negotiable",
             "rating",
             "seller_rating",

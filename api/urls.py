@@ -8,6 +8,7 @@ from .views import (
     CategoryListView,
     ListingListCreateView,
     ListingDetailView,
+    ListingQuickToggleView,
     ListingsFacetsView,
     StartConversationView,
     ConversationListView,
@@ -32,6 +33,7 @@ urlpatterns = [
     path("listings/", ListingListCreateView.as_view(), name="listing-list-create"),
     path("listings/facets/", ListingsFacetsView.as_view(), name="listing-facets"),
     path("listings/<int:pk>/", ListingDetailView.as_view(), name="listing-detail"),
+    path("listings/<int:pk>/quick-toggle/", ListingQuickToggleView.as_view(), name="listing-quick-toggle"),
     path("conversations/", ConversationListView.as_view(), name="conversation-list"),
     path(
         "conversations/start/",
