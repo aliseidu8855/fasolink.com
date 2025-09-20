@@ -29,9 +29,11 @@ from rest_framework.exceptions import PermissionDenied
 from .filters import ListingFilter
 from .ws_events import broadcast_conversation_message, broadcast_conversation_read, notify_user
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.authtoken.views import ObtainAuthToken
 from django.db import transaction
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Count, IntegerField, Sum, Case, When, Max, Q
+from django.db.models import Count, IntegerField, Sum, Case, When, Max
 from django.utils.http import http_date, parse_http_date_safe
 from django.core.cache import cache
 from django.conf import settings
@@ -559,8 +561,22 @@ class ConversationMessagesView(generics.ListCreateAPIView):
         # Handle uploaded files (multipart)
         files = self.request.FILES.getlist('uploaded_files') or []
         if files:
-            for f in files:
-                MessageAttachment.objects.create(message=msg, file=f)
+            # Enforce limits: count, size, and extension whitelist
+            max_count = int(getattr(settings, 'MAX_MESSAGE_ATTACHMENTS', 5))
+            allowed_exts = set(getattr(settings, 'ALLOWED_ATTACHMENT_EXTENSIONS', []))
+            max_size = int(getattr(settings, 'MAX_ATTACHMENT_SIZE_MB', 5)) * 1024 * 1024
+            safe_files = files[:max_count]
+            for f in safe_files:
+                try:
+                    name = getattr(f, 'name', '') or ''
+                    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+                    size_ok = getattr(f, 'size', 0) <= max_size
+                    ext_ok = (ext in allowed_exts) if ext else False
+                    if not size_ok or not ext_ok:
+                        continue
+                    MessageAttachment.objects.create(message=msg, file=f)
+                except Exception:
+                    continue
         # Broadcast new message to websocket listeners
         # Build attachments payload with absolute URLs
         atts = []
@@ -790,8 +806,19 @@ class RUMIngestView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'rum'
 
     def post(self, request):
+        # Optional shared secret gate when configured
+        try:
+            rum_key = getattr(settings, 'RUM_INGEST_KEY', '')
+            if rum_key:
+                provided = request.headers.get('X-RUM-Key') or request.query_params.get('key')
+                if not provided or provided != rum_key:
+                    return Response(status=403)
+        except Exception:
+            pass
         data = request.data
         # Minimal safety: drop excessively large payloads
         try:
@@ -804,6 +831,12 @@ class RUMIngestView(APIView):
         except Exception:
             pass
         return Response(status=204)
+
+
+class LoginRateLimitedView(ObtainAuthToken):
+    """Token login endpoint with per-IP/user throttling via scope 'login'."""
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
 
 class PushSubscriptionView(APIView):
@@ -831,3 +864,121 @@ class PushSubscriptionView(APIView):
             return Response({"error": "endpoint required"}, status=400)
         PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
         return Response(status=204)
+
+
+# --- SEO: robots.txt and sitemap endpoints ---
+class RobotsTxtView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        host = request.build_absolute_uri('/')[:-1]
+        lines = [
+            "User-agent: *",
+            "Allow: /",
+            "Sitemap: " + host + "/sitemap.xml",
+        ]
+        resp = Response("\n".join(lines) + "\n")
+        resp["Content-Type"] = "text/plain; charset=utf-8"
+        resp["Cache-Control"] = "public, max-age=3600"
+        return resp
+
+
+class SitemapIndexView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        host = request.build_absolute_uri('/')[:-1]
+        # Child sitemaps
+        urls = [
+            host + "/sitemap-static.xml",
+            host + "/sitemap-categories.xml",
+            host + "/sitemap-listings.xml",
+        ]
+        body = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ]
+        for u in urls:
+            body.append("  <sitemap><loc>{}</loc></sitemap>".format(u))
+        body.append('</sitemapindex>')
+        resp = Response("\n".join(body))
+        resp["Content-Type"] = "application/xml; charset=utf-8"
+        resp["Cache-Control"] = "public, max-age=3600"
+        return resp
+
+
+class SitemapStaticView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        host = request.build_absolute_uri('/')[:-1]
+        static_paths = [
+            "/",  # home
+            "/listings",  # listings browse
+            "/auth",  # auth page
+            "/messages",  # messages landing
+            "/settings",  # settings
+            "/help",  # help
+        ]
+        body = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ]
+        for p in static_paths:
+            body.append("  <url><loc>{}</loc></url>".format(host + p))
+        body.append('</urlset>')
+        resp = Response("\n".join(body))
+        resp["Content-Type"] = "application/xml; charset=utf-8"
+        resp["Cache-Control"] = "public, max-age=86400"
+        return resp
+
+
+class SitemapCategoriesView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        host = request.build_absolute_uri('/')[:-1]
+        cats = Category.objects.all().values('id', 'name')
+        body = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ]
+        for c in cats:
+            try:
+                # Build a simple listing filter link for the category (using numeric ID)
+                url = f"{host}/listings?category={int(c['id'])}"
+                body.append(f"  <url><loc>{url}</loc></url>")
+            except Exception:
+                continue
+        body.append('</urlset>')
+        resp = Response("\n".join(body))
+        resp["Content-Type"] = "application/xml; charset=utf-8"
+        resp["Cache-Control"] = "public, max-age=21600"
+        return resp
+
+
+class SitemapListingsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        host = request.build_absolute_uri('/')[:-1]
+        # Include only active, non-archived listings
+        qs = Listing.objects.filter(is_active=True, archived=False).order_by('-updated_at')[:5000]
+        body = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        ]
+        for l in qs:
+            loc = f"{host}/listings/{l.id}"
+            lastmod = getattr(l, 'updated_at', None)
+            if lastmod:
+                from datetime import timezone
+                iso = lastmod.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+                body.append(f"  <url><loc>{loc}</loc><lastmod>{iso}</lastmod></url>")
+            else:
+                body.append(f"  <url><loc>{loc}</loc></url>")
+        body.append('</urlset>')
+        resp = Response("\n".join(body))
+        resp["Content-Type"] = "application/xml; charset=utf-8"
+        resp["Cache-Control"] = "public, max-age=1800"
+        return resp

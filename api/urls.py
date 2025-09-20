@@ -1,5 +1,5 @@
 from django.urls import path
-from rest_framework.authtoken.views import obtain_auth_token
+from .views import LoginRateLimitedView
 from .views import (
     RegisterView,
     MeView,
@@ -28,7 +28,7 @@ urlpatterns = [
     path("auth/me/", MeView.as_view(), name="me"),
     path("stats/", StatsView.as_view(), name="stats"),
     path("dashboard/stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
-    path("auth/login/", obtain_auth_token, name="login"),
+    path("auth/login/", LoginRateLimitedView.as_view(), name="login"),
     # Core
     path("categories/", CategoryListView.as_view(), name="category-list"),
     path("listings/", ListingListCreateView.as_view(), name="listing-list-create"),

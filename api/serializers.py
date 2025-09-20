@@ -12,6 +12,7 @@ from .models import (
     PushSubscription,
 )
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 
 # Serializer for User Registration
@@ -179,8 +180,19 @@ class ListingSerializer(serializers.ModelSerializer):
                 )
         if attr_objs:
             ListingAttribute.objects.bulk_create(attr_objs, ignore_conflicts=True)
+        # Filter images by allowed image extensions
+        try:
+            allowed = set(getattr(settings, 'ALLOWED_IMAGE_EXTENSIONS', []))
+        except Exception:
+            allowed = {"jpg","jpeg","png","webp"}
         for image in uploaded_images:
-            ListingImage.objects.create(listing=listing, image=image)
+            try:
+                nm = getattr(image, 'name', '') or ''
+                ext = nm.rsplit('.', 1)[-1].lower() if '.' in nm else ''
+                if ext in allowed:
+                    ListingImage.objects.create(listing=listing, image=image)
+            except Exception:
+                continue
         return listing
 
     def update(self, instance, validated_data):
@@ -191,8 +203,18 @@ class ListingSerializer(serializers.ModelSerializer):
             setattr(instance, attr, val)
         instance.save()
         # Append any newly uploaded images
+        try:
+            allowed = set(getattr(settings, 'ALLOWED_IMAGE_EXTENSIONS', []))
+        except Exception:
+            allowed = {"jpg","jpeg","png","webp"}
         for image in uploaded_images:
-            ListingImage.objects.create(listing=instance, image=image)
+            try:
+                nm = getattr(image, 'name', '') or ''
+                ext = nm.rsplit('.', 1)[-1].lower() if '.' in nm else ''
+                if ext in allowed:
+                    ListingImage.objects.create(listing=instance, image=image)
+            except Exception:
+                continue
         # Upsert attributes if provided (replace existing keys provided in payload)
         if attributes is not None:
             if isinstance(attributes, dict):

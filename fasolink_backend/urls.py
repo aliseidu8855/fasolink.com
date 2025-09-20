@@ -1,13 +1,18 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings
-from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from api import views as api_views
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+    # SEO helpers at root
+    path('robots.txt', api_views.RobotsTxtView.as_view(), name='robots-txt'),
+    path('sitemap.xml', api_views.SitemapIndexView.as_view(), name='sitemap-index'),
+    path('sitemap-static.xml', api_views.SitemapStaticView.as_view(), name='sitemap-static'),
+    path('sitemap-categories.xml', api_views.SitemapCategoriesView.as_view(), name='sitemap-categories'),
+    path('sitemap-listings.xml', api_views.SitemapListingsView.as_view(), name='sitemap-listings'),
 ]
 
 # urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

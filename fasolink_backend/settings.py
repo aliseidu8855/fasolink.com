@@ -19,7 +19,15 @@ ASGI_APPLICATION = "fasolink_backend.asgi.application"
 
 ## --- DEPLOYMENT & SECURITY ---
 DEBUG = os.environ.get("DEBUG", "").lower() in {"1","true","yes"} or ("RENDER" not in os.environ and "HEROKU" not in os.environ)
+
+# Hosts
 ALLOWED_HOSTS = []
+# Support comma-separated ALLOWED_HOSTS env (e.g., "api.example.com,api.internal")
+_allowed_env = os.environ.get("ALLOWED_HOSTS", "").strip()
+if _allowed_env:
+    for host in [h.strip() for h in _allowed_env.split(",") if h.strip()]:
+        if host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
 if RENDER_EXTERNAL_HOSTNAME:
@@ -31,15 +39,23 @@ if HEROKU_APP_NAME:
         "127.0.0.1",
     ])
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://fasolink-web.onrender.com",
-    "https://fasolink.vercel.app",
-    "http://192.168.11.108:5173",
-    "http://172.26.144.1:5173",
-    "https://fasolinkapi-c1c106ebe031.herokuapp.com",
-]
+# Security headers & HTTPS enforcement (default to strict in production)
+SECURE_SSL_REDIRECT = (not DEBUG) and (os.environ.get("SECURE_SSL_REDIRECT", "1").lower() in {"1","true","yes"})
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.environ.get("SECURE_HSTS_INCLUDE_SUBDOMAINS", "1").lower() in {"1","true","yes"}
+SECURE_HSTS_PRELOAD = os.environ.get("SECURE_HSTS_PRELOAD", "0").lower() in {"1","true","yes"}
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = os.environ.get("SECURE_REFERRER_POLICY", "strict-origin-when-cross-origin")
+X_FRAME_OPTIONS = os.environ.get("X_FRAME_OPTIONS", "DENY")
+SECURE_CROSS_ORIGIN_OPENER_POLICY = os.environ.get("SECURE_CROSS_ORIGIN_OPENER_POLICY", "same-origin")
+
+CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
 
 # Allow additional CORS origins via environment variables (comma-separated)
 _extra_cors = os.environ.get("CORS_ALLOWED_ORIGINS")
@@ -145,6 +161,15 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_TRUSTED_ORIGINS = []
 if os.environ.get('HEROKU_APP_NAME'):
     CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['HEROKU_APP_NAME']}.herokuapp.com")
+# Include any HTTPS origins from CORS into CSRF trusted list
+for _origin in CORS_ALLOWED_ORIGINS:
+    try:
+        if _origin.startswith("https://"):
+            host = _origin
+            if host not in CSRF_TRUSTED_ORIGINS:
+                CSRF_TRUSTED_ORIGINS.append(host)
+    except Exception:
+        pass
 ## --- OTHER SETTINGS ---
 # (Templates, Auth Validators, i18n, DRF, Spectacular, etc. remain the same)
 TEMPLATES = [
@@ -198,6 +223,10 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": os.environ.get("DRF_THROTTLE_ANON", "300/min"),
         "user": os.environ.get("DRF_THROTTLE_USER", "1000/min"),
+        # Per-scope throttle: RUM ingest endpoint
+        "rum": os.environ.get("DRF_THROTTLE_RUM", "60/min"),
+        # Login burst protection
+        "login": os.environ.get("DRF_THROTTLE_LOGIN", "20/min"),
     },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -215,3 +244,26 @@ SPECTACULAR_SETTINGS = {
 # Generate a VAPID key pair and set these env vars in deployment.
 VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
 VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
+
+# --- Upload limits (prevent large payload DoS) ---
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get("DATA_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024)))  # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get("FILE_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024)))  # 10 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.environ.get("DATA_UPLOAD_MAX_NUMBER_FIELDS", "1000"))
+
+# Message/listing attachments limits (used by views/serializers)
+MAX_ATTACHMENT_SIZE_MB = int(os.environ.get("MAX_ATTACHMENT_SIZE_MB", "5"))
+MAX_MESSAGE_ATTACHMENTS = int(os.environ.get("MAX_MESSAGE_ATTACHMENTS", "5"))
+ALLOWED_ATTACHMENT_EXTENSIONS = os.environ.get("ALLOWED_ATTACHMENT_EXTENSIONS", "jpg,jpeg,png,webp,pdf").lower().split(",")
+ALLOWED_IMAGE_EXTENSIONS = os.environ.get("ALLOWED_IMAGE_EXTENSIONS", "jpg,jpeg,png,webp").lower().split(",")
+
+# Optional RUM ingest shared secret
+# RUM_INGEST_KEY = os.environ.get("RUM_INGEST_KEY", "")
+
+# Use JSONRenderer only in production (disable Browsable API)
+if not DEBUG:
+    try:
+        REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = [
+            "rest_framework.renderers.JSONRenderer",
+        ]
+    except Exception:
+        pass
